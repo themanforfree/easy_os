@@ -37,7 +37,7 @@ macro_rules! println {
 #[cfg(test)]
 mod tests {
     #[test_case]
-    fn it_works() {
+    fn test_print() {
         print!("   ");
     }
 }

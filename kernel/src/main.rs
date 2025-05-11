@@ -3,7 +3,9 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_utils::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+extern crate alloc;
 
+use crate::common::clear_bss;
 use crate::sbi::shutdown;
 use core::arch::naked_asm;
 use log::info;
@@ -11,7 +13,9 @@ use log::info;
 #[macro_use]
 mod console;
 mod common;
+mod config;
 mod logger;
+mod memory;
 mod sbi;
 #[cfg(test)]
 mod test_utils;
@@ -35,7 +39,9 @@ unsafe extern "C" fn _start() -> ! {
 }
 
 pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
+    clear_bss();
     logger::init();
+    memory::init_heap();
     #[cfg(not(test))]
     {
         info!(r" _____         _     _  __                    _ ");
