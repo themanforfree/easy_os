@@ -1,0 +1,120 @@
+//! Physical Address Format
+//! ```text
+//! ┌────────────────────────────────┬──────────────┐
+//! │     Physical Page Number       │ Page Offset  │
+//! └────────────────────────────────┴──────────────┘
+//!  55                            12 11           0
+//! ```
+
+use core::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Sub},
+};
+
+use crate::config::PAGE_SIZE;
+
+const PA_WIDTH_SV39: usize = 56;
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct PhysAddr(usize);
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct PhysPageNum(usize);
+
+impl PhysAddr {
+    pub fn zero() -> Self {
+        Self(0)
+    }
+
+    pub fn new(addr: usize) -> Self {
+        Self::try_new(addr).unwrap_or_else(|_| {
+            panic!("Invalid physical address: {:#x}", addr);
+        })
+    }
+
+    pub fn is_valid(addr: usize) -> bool {
+        addr >> PA_WIDTH_SV39 == 0
+    }
+
+    #[inline]
+    pub fn try_new(addr: usize) -> Result<Self, usize> {
+        if Self::is_valid(addr) {
+            Ok(Self(addr))
+        } else {
+            Err(addr)
+        }
+    }
+
+    pub fn page_number(&self) -> PhysPageNum {
+        PhysPageNum(self.0 >> 12)
+    }
+
+    pub fn next_page_number(&self) -> PhysPageNum {
+        PhysPageNum((self.0 + PAGE_SIZE - 1) >> 12)
+    }
+}
+
+impl PhysPageNum {
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+}
+
+impl Debug for PhysAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "PhysAddr({:#x})", self.0)
+    }
+}
+
+impl Debug for PhysPageNum {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "PhysPageNum({:#x})", self.0)
+    }
+}
+
+impl Add<usize> for PhysPageNum {
+    type Output = PhysPageNum;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        PhysPageNum(self.0 + rhs)
+    }
+}
+
+impl Sub<usize> for PhysPageNum {
+    type Output = PhysPageNum;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        PhysPageNum(self.0 - rhs)
+    }
+}
+
+impl AddAssign<usize> for PhysPageNum {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::usize;
+
+    use super::*;
+
+    #[test_case]
+    fn test_phys_addr() {
+        let valid_addrs = [
+            (0x0000_0000_0000_0000, 0x0000_0000_0000_0000),
+            (0x0000_003F_FFFF_FFFF, 0x0000_0000_03FF_FFFF),
+        ];
+        for (addr, vpn) in valid_addrs {
+            let phys_addr = PhysAddr::new(addr);
+            assert_eq!(phys_addr.page_number().0, vpn);
+            assert_eq!(phys_addr.0, addr);
+        }
+
+        let invalid_addrs = [0xFFFF_FFC0_0000_0123];
+        for addr in invalid_addrs {
+            assert!(!PhysAddr::is_valid(addr));
+        }
+    }
+}
