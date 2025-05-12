@@ -2,3 +2,4 @@
 .gdb_history
 .idea
 .vscode
+link_app.S

@@ -3,22 +3,28 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_utils::test_runner)]
 #![reexport_test_harness_main = "test_main"]
-extern crate alloc;
+#![cfg_attr(test, allow(unused))]
 
 use crate::common::clear_bss;
 use crate::sbi::shutdown;
-use core::arch::naked_asm;
+use core::arch::{global_asm, naked_asm};
 use log::info;
 
 #[macro_use]
 mod console;
+mod batch;
 mod common;
 mod config;
 mod logger;
-mod memory;
 mod sbi;
+mod sync;
+mod syscall;
 #[cfg(test)]
 mod test_utils;
+mod trap;
+// mod memory;
+
+global_asm!(include_str!("link_app.S"));
 
 #[unsafe(naked)]
 #[unsafe(no_mangle)]
@@ -41,7 +47,8 @@ unsafe extern "C" fn _start() -> ! {
 pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
     clear_bss();
     logger::init();
-    memory::init_heap();
+    // memory::init_heap(); // FIXME: 初始化堆分配会导致 trap handler 时 log 不可用
+    trap::init();
     #[cfg(not(test))]
     {
         info!(r" _____         _     _  __                    _ ");
@@ -53,6 +60,9 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
         info!(r"| boot hart id          | {hart_id:20} |");
         info!(r"| dtb physical address  | {dtb_pa:#20x} |");
         info!(r"------------------------------------------------");
+        info!("");
+        batch::init();
+        batch::run_next_app();
     }
     #[cfg(test)]
     {
@@ -61,6 +71,6 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
         info!("dtb_pa: {:#x}", dtb_pa);
         test_main();
     }
-
+    #[allow(unreachable_code)] // TODO: remove this
     shutdown(false);
 }
