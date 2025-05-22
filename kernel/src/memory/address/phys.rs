@@ -11,7 +11,7 @@ use core::{
     ops::{Add, AddAssign, Sub},
 };
 
-use crate::config::PAGE_SIZE;
+use crate::{config::PAGE_SIZE, memory::page_table::PageTableEntry};
 
 const PA_WIDTH_SV39: usize = 56;
 
@@ -55,8 +55,17 @@ impl PhysAddr {
 }
 
 impl PhysPageNum {
+    pub const fn new(ppn: usize) -> Self {
+        Self(ppn)
+    }
+
     pub const fn zero() -> Self {
         Self(0)
+    }
+
+    pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
+        let pa = PhysAddr::from(*self);
+        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, 512) }
     }
 }
 
@@ -69,6 +78,18 @@ impl Debug for PhysAddr {
 impl Debug for PhysPageNum {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "PhysPageNum({:#x})", self.0)
+    }
+}
+
+impl From<PhysAddr> for usize {
+    fn from(addr: PhysAddr) -> Self {
+        addr.0
+    }
+}
+
+impl From<PhysPageNum> for usize {
+    fn from(ppn: PhysPageNum) -> Self {
+        ppn.0
     }
 }
 
@@ -91,6 +112,12 @@ impl Sub<usize> for PhysPageNum {
 impl AddAssign<usize> for PhysPageNum {
     fn add_assign(&mut self, rhs: usize) {
         self.0 += rhs;
+    }
+}
+
+impl From<PhysPageNum> for PhysAddr {
+    fn from(ppn: PhysPageNum) -> Self {
+        Self(ppn.0 << 12)
     }
 }
 

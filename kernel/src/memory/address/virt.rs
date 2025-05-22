@@ -7,27 +7,18 @@
 //! └─────────┴─────────┴─────────┴─────────┴─────────────┘
 //!  63     39 38     30 29     21 20     12 11          0
 //! ```
-use core::fmt::Debug;
+use core::{fmt::Debug, iter::Step};
+
+use crate::config::PAGE_SIZE;
 
 const VA_WIDTH_SV39: usize = 39;
+const VA_WIDTH_SV39_MASK: usize = (1 << VA_WIDTH_SV39) - 1;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtAddr(usize);
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(usize);
-
-impl Debug for VirtAddr {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "VirtAddr({:#x})", self.0)
-    }
-}
-
-impl Debug for VirtPageNum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "VirtPageNum({:#x})", self.0)
-    }
-}
 
 impl VirtAddr {
     pub fn new(addr: usize) -> Self {
@@ -52,7 +43,64 @@ impl VirtAddr {
 
     pub fn page_number(&self) -> VirtPageNum {
         // Remove flag extension and offset
-        VirtPageNum((self.0 & (1 << VA_WIDTH_SV39) - 1) >> 12)
+        VirtPageNum((self.0 & VA_WIDTH_SV39_MASK) >> 12)
+    }
+
+    pub fn next_page_number(&self) -> VirtPageNum {
+        // Remove flag extension and offset
+        VirtPageNum(((self.0 + PAGE_SIZE - 1) & VA_WIDTH_SV39_MASK) >> 12)
+    }
+}
+
+impl VirtPageNum {
+    pub fn indexes(&self) -> [usize; 3] {
+        let mut vpn = self.0;
+        let mut idx = [0usize; 3];
+        for i in (0..3).rev() {
+            idx[i] = vpn & 511;
+            vpn >>= 9;
+        }
+        idx
+    }
+}
+
+impl Debug for VirtAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "VirtAddr({:#x})", self.0)
+    }
+}
+
+impl Debug for VirtPageNum {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "VirtPageNum({:#x})", self.0)
+    }
+}
+
+impl From<VirtAddr> for usize {
+    fn from(addr: VirtAddr) -> Self {
+        addr.0
+    }
+}
+
+impl From<VirtPageNum> for usize {
+    fn from(vpn: VirtPageNum) -> Self {
+        vpn.0
+    }
+}
+
+impl Step for VirtPageNum {
+    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+        usize::steps_between(&start.0, &end.0)
+    }
+
+    fn forward_checked(start: Self, count: usize) -> Option<Self> {
+        let end = usize::forward_checked(start.0, count)?;
+        Some(Self(end))
+    }
+
+    fn backward_checked(start: Self, count: usize) -> Option<Self> {
+        let end = usize::backward_checked(start.0, count)?;
+        Some(Self(end))
     }
 }
 
@@ -78,6 +126,17 @@ mod tests {
         let invalid_addrs = [0x0000_7FFF_FFFF_FFFF, 0x0000_0040_0000_0000];
         for addr in invalid_addrs {
             assert!(!VirtAddr::is_valid(addr));
+        }
+    }
+
+    #[test_case]
+    fn test_virt_range() {
+        let start = VirtPageNum(1);
+        let end = VirtPageNum(10);
+        let mut n = 1;
+        for i in start..=end {
+            assert_eq!(i.0, n);
+            n += 1;
         }
     }
 }

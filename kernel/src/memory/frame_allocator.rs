@@ -6,12 +6,12 @@ use crate::sync::UPSafeCell;
 use super::address::PhysPageNum;
 
 type FrameAllocatorImpl = StackFrameAllocator;
-static FRAME_ALLOCATOR: UPSafeCell<FrameAllocatorImpl> =
+pub static FRAME_ALLOCATOR: UPSafeCell<FrameAllocatorImpl> =
     unsafe { UPSafeCell::new(FrameAllocatorImpl::new()) };
 
 #[derive(Debug)]
 pub struct FrameTracker {
-    ppn: PhysPageNum,
+    pub ppn: PhysPageNum,
 }
 
 impl Drop for FrameTracker {
@@ -24,7 +24,7 @@ pub trait FrameAllocator {
     fn frame_alloc(&mut self) -> Option<FrameTracker>;
 }
 
-struct StackFrameAllocator {
+pub struct StackFrameAllocator {
     current: PhysPageNum,
     end: PhysPageNum,
     recycled: Vec<PhysPageNum>,

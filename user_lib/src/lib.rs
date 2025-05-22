@@ -1,10 +1,13 @@
 #![no_std]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_utils::test_runner)]
 #![feature(linkage)]
 
 #[macro_use]
 pub mod console;
 mod common;
 mod syscall;
+pub mod test_utils;
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.entry")]
