@@ -1,6 +1,7 @@
 mod address;
 mod frame_allocator;
 mod heap_allocator;
+mod map_area;
 mod memory_space;
 mod page_table;
 
