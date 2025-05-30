@@ -17,7 +17,6 @@ use proc::PROC_MANAGER;
 
 #[macro_use]
 mod console;
-// mod batch;
 mod common;
 mod config;
 mod logger;
@@ -28,6 +27,7 @@ mod sync;
 mod syscall;
 #[cfg(test)]
 mod test_utils;
+mod timer;
 mod trap;
 
 global_asm!(include_str!("link_app.S"));
@@ -55,6 +55,7 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
     logger::init();
     memory::init();
     trap::init();
+    timer::init();
     #[cfg(not(test))]
     {
         info!(r" _____         _     _  __                    _ ");

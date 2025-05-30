@@ -2,13 +2,13 @@ use core::arch::{asm, global_asm};
 
 use log::error;
 use riscv::register::{
-    scause::{self, Exception, Trap},
+    scause::{self, Exception, Interrupt, Trap},
     stval, stvec,
     utvec::TrapMode,
 };
 pub use trap_frame::TrapFrame;
 
-use crate::{config::TRAMPOLINE, proc::PROC_MANAGER};
+use crate::{config::TRAMPOLINE, proc::PROC_MANAGER, timer::set_next_trigger};
 use crate::{config::TRAP_FRAME, syscall::syscall};
 
 mod trap_frame;
@@ -33,14 +33,26 @@ pub fn trap_handler() -> ! {
             cx.sepc += 4;
             cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
         }
-        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
-            error!("PageFault in application, kernel killed it.");
+        Trap::Exception(Exception::StoreFault)
+        | Trap::Exception(Exception::StorePageFault)
+        | Trap::Exception(Exception::LoadFault)
+        | Trap::Exception(Exception::LoadPageFault) => {
+            error!(
+                "PageFault in application, kernel killed it. fault_va = {:#x}, scause = {:?}",
+                stval,
+                scause.cause()
+            );
             PROC_MANAGER.mark_current_exited();
             PROC_MANAGER.run_next_task();
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             error!("IllegalInstruction in application, kernel killed it.");
             PROC_MANAGER.mark_current_exited();
+            PROC_MANAGER.run_next_task();
+        }
+        Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            set_next_trigger();
+            PROC_MANAGER.mark_current_suspended();
             PROC_MANAGER.run_next_task();
         }
         _ => {

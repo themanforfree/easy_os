@@ -90,6 +90,12 @@ impl ProcManager {
         inner.procs[cur].status = ProcStatus::Terminated;
     }
 
+    pub fn mark_current_suspended(&self) {
+        let mut inner = self.inner.borrow_mut();
+        let cur = inner.current_proc;
+        inner.procs[cur].status = ProcStatus::Ready;
+    }
+
     fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.borrow_mut();
         let current = inner.current_proc;
