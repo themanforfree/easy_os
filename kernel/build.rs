@@ -2,8 +2,7 @@ use std::{
     env,
     fs::{self, File, read_dir},
     io::{Result, Write},
-    path::{Path, PathBuf},
-    process::Command,
+    path::PathBuf,
 };
 
 fn main() {
@@ -18,24 +17,6 @@ fn main() {
     println!("cargo:rustc-force-frame-pointers=yes");
 }
 
-fn elf_to_bin(elf_path: impl AsRef<Path>) -> PathBuf {
-    let mut bin_path = elf_path.as_ref().to_path_buf();
-    bin_path.set_extension("bin");
-
-    // rust-objcopy --binary-architecture=riscv64 $(elf) --strip-all -O binary  $(bin)
-    let status = Command::new("rust-objcopy")
-        .arg("--binary-architecture=riscv64")
-        .arg(elf_path.as_ref())
-        .arg("--strip-all")
-        .arg("-O")
-        .arg("binary")
-        .arg(bin_path.as_path())
-        .status()
-        .expect("failed to execute process");
-    assert!(status.success(), "failed to convert elf to bin");
-    bin_path
-}
-
 fn insert_app_data() -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let profile = env::var("PROFILE").unwrap();
@@ -44,7 +25,6 @@ fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S")?;
     let apps: Vec<_> = read_dir("../user_lib/src/bin")
         .unwrap()
-        .into_iter()
         .map(|dir_entry| {
             let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
             name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
@@ -64,13 +44,12 @@ _num_apps:
     )?;
 
     for i in 0..apps.len() {
-        writeln!(f, r#"    .quad app_{}_start"#, i)?;
+        writeln!(f, r#"    .quad app_{i}_start"#)?;
     }
     writeln!(f, r#"    .quad app_{}_end"#, apps.len() - 1)?;
 
     for (idx, app) in apps.iter().enumerate() {
         let elf_path = target_path.join(&profile).join(app);
-        let bin_path = elf_to_bin(&elf_path);
         writeln!(
             f,
             r#"
@@ -81,7 +60,7 @@ app_{idx}_start:
     .incbin "{path}"
 app_{idx}_end:"#,
             idx = idx,
-            path = bin_path.display(),
+            path = elf_path.display(),
         )?;
     }
     Ok(())

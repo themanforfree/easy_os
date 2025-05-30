@@ -13,14 +13,16 @@ use crate::common::clear_bss;
 use crate::sbi::shutdown;
 use core::arch::{global_asm, naked_asm};
 use log::info;
+use proc::PROC_MANAGER;
 
 #[macro_use]
 mod console;
-mod batch;
+// mod batch;
 mod common;
 mod config;
 mod logger;
 mod memory;
+mod proc;
 mod sbi;
 mod sync;
 mod syscall;
@@ -65,8 +67,7 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
         info!(r"| dtb physical address  | {dtb_pa:#20x} |");
         info!(r"------------------------------------------------");
         info!("");
-        // batch::init();
-        // batch::run_next_app();
+        PROC_MANAGER.run_first_proc();
     }
     #[cfg(test)]
     {

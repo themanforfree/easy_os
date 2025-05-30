@@ -1,10 +1,12 @@
-use alloc::vec;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use bitflags::bitflags;
 
-use crate::memory::frame_allocator::{FRAME_ALLOCATOR, FrameAllocator};
+use crate::{
+    config::PAGE_SIZE,
+    memory::frame_allocator::{FRAME_ALLOCATOR, FrameAllocator},
+};
 
-use super::{PhysPageNum, VirtPageNum, frame_allocator::FrameTracker};
+use super::{PhysPageNum, VirtAddr, VirtPageNum, frame_allocator::FrameTracker};
 
 bitflags! {
     #[derive(Clone, Copy, Debug)]
@@ -77,14 +79,14 @@ impl PageTable {
     }
 
     fn is_readonly(&self) -> bool {
-        self.frames.len() == 0
+        self.frames.is_empty()
     }
 
     fn find_pte(&self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let indexes = vpn.indexes();
         let mut ppn = self.root_ppn;
-        for i in 0..3 {
-            let pte = &mut ppn.get_pte_array()[indexes[i]];
+        for (i, &idx) in indexes.iter().enumerate() {
+            let pte = &mut ppn.get_pte_array()[idx];
             if i == 2 {
                 return Some(pte);
             }
@@ -103,8 +105,8 @@ impl PageTable {
         );
         let indexes = vpn.indexes();
         let mut ppn = self.root_ppn;
-        for i in 0..3 {
-            let pte = &mut ppn.get_pte_array()[indexes[i]];
+        for (i, &idx) in indexes.iter().enumerate() {
+            let pte = &mut ppn.get_pte_array()[idx];
             if i == 2 {
                 return Some(pte);
             }
@@ -120,13 +122,14 @@ impl PageTable {
 
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         let pte = self.find_pte_create(vpn).unwrap();
-        assert!(!pte.is_valid(), "vpn {:?} is already mapped", vpn);
+        assert!(!pte.is_valid(), "vpn {vpn:?} is already mapped");
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     }
 
+    #[allow(dead_code)]
     pub fn unmap(&mut self, vpn: VirtPageNum) {
         let pte = self.find_pte(vpn).unwrap();
-        assert!(pte.is_valid(), "vpn {:?} is not mapped", vpn);
+        assert!(pte.is_valid(), "vpn {vpn:?} is not mapped");
         *pte = PageTableEntry::empty();
     }
 
@@ -136,5 +139,76 @@ impl PageTable {
 
     pub fn token(&self) -> usize {
         8usize << 60 | usize::from(self.root_ppn)
+    }
+
+    pub fn from_token(token: usize) -> Self {
+        Self {
+            root_ppn: PhysPageNum::new(token & ((1usize << 44) - 1)),
+            frames: Vec::new(),
+        }
+    }
+
+    pub fn copy_out(&self, start_vpn: VirtPageNum, end_vpn: VirtPageNum, data: &[u8]) {
+        let mut offset = 0;
+        let len = data.len();
+        for vpn in start_vpn..end_vpn {
+            let src = &data[offset..len.min(offset + PAGE_SIZE)];
+            let dst = &mut self.translate(vpn).unwrap().ppn().get_bytes_array()[..src.len()];
+            dst.copy_from_slice(src);
+            offset += PAGE_SIZE;
+            if offset >= len {
+                break;
+            }
+        }
+    }
+
+    // pub fn copy_in(&self, start_va: VirtAddr, len: usize) -> Vec<u8> {
+    //     let mut dst = Vec::with_capacity(len);
+    //     let mut copied = 0;
+    //     for vpn in start_va.page_number().. {
+    //         // every page
+    //         let ppn = self.translate(vpn).unwrap().ppn();
+    //         let src = ppn.get_bytes_array();
+
+    //         let start = if copied == 0 {
+    //             start_va.page_offset()
+    //         } else {
+    //             0
+    //         };
+    //         let end = if copied + PAGE_SIZE > len {
+    //             len - copied + start
+    //         } else {
+    //             PAGE_SIZE
+    //         };
+    //         dst.extend_from_slice(&src[..len]);
+    //         copied += end - start;
+    //         if copied >= len {
+    //             break;
+    //         }
+    //     }
+    //     dst
+    // }
+
+    pub fn copy_in(&self, ptr: *const u8, len: usize) -> Vec<u8> {
+        let mut start = ptr as usize;
+        let end = start + len;
+        let mut v = Vec::new();
+        while start < end {
+            let start_va = VirtAddr::new(start);
+            let mut vpn = start_va.page_number();
+            let ppn = self.translate(vpn).unwrap().ppn();
+            vpn.step();
+            let mut end_va: VirtAddr = vpn.into();
+            end_va = end_va.min(VirtAddr::new(end));
+
+            let src = ppn.get_bytes_array();
+            if end_va.page_offset() == 0 {
+                v.extend_from_slice(&src[start_va.page_offset()..]);
+            } else {
+                v.extend_from_slice(&src[start_va.page_offset()..end_va.page_offset()]);
+            }
+            start = end_va.into();
+        }
+        v
     }
 }

@@ -5,17 +5,14 @@
 .macro LOAD_GP n
     ld x\n, \n*8(sp)
 .endm
-    .section .text
+    .section .text.trampoline
     .globl uservec
     .globl userret
     .align 2
 uservec:
     csrrw sp, sscratch, sp
-    # 用户态陷入内核前，sscratch 保存着内核栈指针，发生陷入后
-    # 通过以上指令换栈，然后再内核栈上分配 34*8 字节的空间作为 TrapFrame
-    # now sp->kernel stack, sscratch->user stack
-    # allocate a TrapFrame on kernel stack
-    addi sp, sp, -34*8
+    # sp->*TrapFrame, sscratch -> user stack
+
     // 保存除了 x0/x2(sp)/x4(tp) 以外的所有通用寄存器
     // x0 是常数 0, 不需要保存
     // x2 是栈指针，目前指向内核栈，后面单独处理
@@ -43,23 +40,41 @@ uservec:
     # 读出用户栈指针，存入 TrapFrame
     csrr t2, sscratch
     sd t2, 2*8(sp)
-    # set input argument of trap_handler(cx: &mut TrapFrame)
-    # 调用 rust 实现的 trap_handler，并传入 TrapFrame 的地址
-    mv a0, sp
-    call trap_handler
+    # load kernel satp into t0
+    ld t0, 34*8(sp)
+    # load trap_handler address into t1
+    ld t1, 36*8(sp)
+    # load kernel_sp to sp
+    ld sp, 35*8(sp)
+    # switch to kernel space
+    csrw satp, t0 
+    # flush TLB
+    sfence.vma
+    # jump to trap_handler
+    jr t1
 
 userret:
     # case1: start running app by userret
     # case2: back to U after handling trap
+    
+    # a0: *TrapFrame in user space
+    # a1: user space token
+
+    # switch to user space
+    csrw satp, a1
+    sfence.vma
+
+    # save a0(*TrapFrame) to sscratch
+    csrw sscratch, a0
+    # sp points to TrapFrame in user space
     mv sp, a0
-    # now sp->kernel stack(after allocated), sscratch->user stack
+    
     # restore sstatus/sepc
     ld t0, 32*8(sp)
     ld t1, 33*8(sp)
-    ld t2, 2*8(sp)
     csrw sstatus, t0
     csrw sepc, t1
-    csrw sscratch, t2 # 将用户栈指针恢复到 sscratch 寄存器
+    
     # restore general-purpose registers except sp/tp
     ld x1, 1*8(sp)
     ld x3, 3*8(sp)
@@ -68,8 +83,5 @@ userret:
         LOAD_GP %n
         .set n, n+1
     .endr
-    # release TrapFrame on kernel stack
-    addi sp, sp, 34*8 # 释放内核栈上的 TrapFrame
-    # now sp->kernel stack, sscratch->user stack
-    csrrw sp, sscratch, sp # 换栈
+    ld sp, 2*8(sp)  # restore user stack pointer
     sret

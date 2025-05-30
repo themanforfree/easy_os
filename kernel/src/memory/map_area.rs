@@ -4,26 +4,27 @@ use alloc::collections::btree_map::BTreeMap;
 
 use bitflags::bitflags;
 
-use super::{VirtAddr, VirtPageNum, frame_allocator::FrameTracker};
+use super::{VirtPageNum, frame_allocator::FrameTracker};
 
 pub struct MapArea {
     start_vpn: VirtPageNum,
     end_vpn: VirtPageNum,
     data_frames: BTreeMap<VirtPageNum, FrameTracker>,
     map_type: MapType,
+    #[allow(unused)]
     map_perm: MapPermission,
 }
 
 impl MapArea {
     pub fn new(
-        start_va: VirtAddr,
-        end_va: VirtAddr,
+        start_vpn: VirtPageNum,
+        end_vpn: VirtPageNum,
         map_type: MapType,
         map_perm: MapPermission,
     ) -> Self {
         Self {
-            start_vpn: start_va.page_number(),
-            end_vpn: end_va.page_number(),
+            start_vpn,
+            end_vpn,
             data_frames: BTreeMap::new(),
             map_type,
             map_perm,

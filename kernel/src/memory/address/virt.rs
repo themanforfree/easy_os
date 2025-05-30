@@ -7,7 +7,11 @@
 //! └─────────┴─────────┴─────────┴─────────┴─────────────┘
 //!  63     39 38     30 29     21 20     12 11          0
 //! ```
-use core::{fmt::Debug, iter::Step};
+use core::{
+    fmt::Debug,
+    iter::Step,
+    ops::{Add, AddAssign},
+};
 
 use crate::config::PAGE_SIZE;
 
@@ -19,6 +23,12 @@ pub struct VirtAddr(usize);
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(usize);
+
+impl VirtPageNum {
+    pub fn step(&mut self) {
+        self.0 += 1;
+    }
+}
 
 impl VirtAddr {
     pub fn new(addr: usize) -> Self {
@@ -44,6 +54,10 @@ impl VirtAddr {
     pub fn page_number(&self) -> VirtPageNum {
         // Remove flag extension and offset
         VirtPageNum((self.0 & VA_WIDTH_SV39_MASK) >> 12)
+    }
+
+    pub fn page_offset(&self) -> usize {
+        self.0 & (PAGE_SIZE - 1)
     }
 
     pub fn next_page_number(&self) -> VirtPageNum {
@@ -85,6 +99,26 @@ impl From<VirtAddr> for usize {
 impl From<VirtPageNum> for usize {
     fn from(vpn: VirtPageNum) -> Self {
         vpn.0
+    }
+}
+
+impl From<VirtPageNum> for VirtAddr {
+    fn from(vpn: VirtPageNum) -> Self {
+        Self(vpn.0 << 12)
+    }
+}
+
+impl Add<usize> for VirtAddr {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl AddAssign<usize> for VirtAddr {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs;
     }
 }
 
