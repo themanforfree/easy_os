@@ -1,6 +1,6 @@
 //! File and filesystem-related syscalls
 
-use crate::{memory::PageTable, proc::PROC_MANAGER};
+use crate::{memory::PageTable, proc::CPU};
 
 const FD_STDOUT: usize = 1;
 
@@ -8,7 +8,8 @@ const FD_STDOUT: usize = 1;
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     match fd {
         FD_STDOUT => {
-            let token = PROC_MANAGER.get_current_token();
+            let proc = CPU.borrow_mut().current();
+            let token = proc.borrow_inner_mut().get_token();
             let pt = PageTable::from_token(token);
             let slice = pt.copy_in(buf, len);
             let str = core::str::from_utf8(&slice).unwrap();

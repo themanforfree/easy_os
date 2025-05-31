@@ -3,7 +3,6 @@ use core::arch::asm;
 use alloc::{sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
 use riscv::register::satp;
-use xmas_elf::header::MAGIC;
 
 use crate::{
     config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_FRAME, USER_STACK_SIZE},
@@ -138,9 +137,6 @@ impl MemorySpace {
 
         let elf = xmas_elf::ElfFile::new(elf_data).unwrap();
         let elf_header = elf.header;
-
-        let magic = elf_header.pt1.magic;
-        assert_eq!(magic, MAGIC, "invalid elf!");
 
         let ph_count = elf_header.pt2.ph_count();
         let mut max_end_vpn = None;

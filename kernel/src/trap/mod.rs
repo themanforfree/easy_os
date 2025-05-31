@@ -6,10 +6,14 @@ use riscv::register::{
     stval, stvec,
     utvec::TrapMode,
 };
-pub use trap_frame::TrapFrame;
 
-use crate::{config::TRAMPOLINE, proc::PROC_MANAGER, timer::set_next_trigger};
-use crate::{config::TRAP_FRAME, syscall::syscall};
+pub use self::trap_frame::TrapFrame;
+use crate::{
+    config::{TRAMPOLINE, TRAP_FRAME},
+    proc::CPU,
+    syscall::syscall,
+    timer::set_next_trigger,
+};
 
 mod trap_frame;
 
@@ -24,7 +28,8 @@ pub fn init() {
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
-    let cx = PROC_MANAGER.get_current_trap_frame_mut();
+    let proc = CPU.borrow_mut().current();
+    let cx = proc.borrow_inner_mut().get_trap_frame_mut();
     let scause = scause::read(); // get trap cause
     let stval = stval::read(); // get extra value
     match scause.cause() {
@@ -42,18 +47,21 @@ pub fn trap_handler() -> ! {
                 stval,
                 scause.cause()
             );
-            PROC_MANAGER.mark_current_exited();
-            PROC_MANAGER.run_next_task();
+            // PROC_MANAGER.mark_current_exited();
+            // PROC_MANAGER.run_next_task();
+            todo!()
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             error!("IllegalInstruction in application, kernel killed it.");
-            PROC_MANAGER.mark_current_exited();
-            PROC_MANAGER.run_next_task();
+            // PROC_MANAGER.mark_current_exited();
+            // PROC_MANAGER.run_next_task();
+            todo!()
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             set_next_trigger();
-            PROC_MANAGER.mark_current_suspended();
-            PROC_MANAGER.run_next_task();
+            // PROC_MANAGER.mark_current_suspended();
+            // PROC_MANAGER.run_next_task();
+            // todo!()
         }
         _ => {
             panic!(
@@ -88,7 +96,9 @@ fn set_user_trap_entry() {
 pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = TRAP_FRAME;
-    let user_satp = PROC_MANAGER.get_current_token();
+    let proc = CPU.borrow_mut().current();
+    let user_satp = proc.borrow_inner_mut().get_token();
+
     unsafe extern "C" {
         /// The entry point for user space traps, which is the trampoline code.
         pub fn uservec();

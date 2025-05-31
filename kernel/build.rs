@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{self, File, read_dir},
+    fs::{self, File},
     io::{Result, Write},
     path::PathBuf,
 };
@@ -23,14 +23,15 @@ fn insert_app_data() -> Result<()> {
     let target_path = out_dir.ancestors().nth(4).unwrap();
 
     let mut f = File::create("src/link_app.S")?;
-    let apps: Vec<_> = read_dir("../user_lib/src/bin")
-        .unwrap()
-        .map(|dir_entry| {
-            let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
-            name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
-            name_with_ext
-        })
-        .collect();
+    // let apps: Vec<_> = read_dir("../user_lib/src/bin")
+    //     .unwrap()
+    //     .map(|dir_entry| {
+    //         let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
+    //         name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
+    //         name_with_ext
+    //     })
+    //     .collect();
+    let apps = ["init"];
 
     writeln!(
         f,
@@ -48,6 +49,16 @@ _num_apps:
     }
     writeln!(f, r#"    .quad app_{}_end"#, apps.len() - 1)?;
 
+    writeln!(
+        f,
+        r#"
+    .global _app_names
+_app_names:"#
+    )?;
+    for app in apps.iter() {
+        writeln!(f, r#"    .string "{}""#, app)?;
+    }
+
     for (idx, app) in apps.iter().enumerate() {
         let elf_path = target_path.join(&profile).join(app);
         writeln!(
@@ -56,6 +67,7 @@ _num_apps:
     .section .data
     .global app_{idx}_start
     .global app_{idx}_end
+    .align 3
 app_{idx}_start:
     .incbin "{path}"
 app_{idx}_end:"#,
