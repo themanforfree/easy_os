@@ -15,7 +15,7 @@ pub struct PidAllocator {
 impl PidAllocator {
     pub fn new() -> Self {
         Self {
-            next_pid: 1, // Start from 1, 0 is reserved for the kernel
+            next_pid: 0,
             recycled: Vec::new(),
         }
     }

@@ -2,13 +2,17 @@ use alloc::{collections::vec_deque::VecDeque, sync::Arc};
 use lazy_static::lazy_static;
 use log::info;
 
-use crate::sync::UPSafeCell;
+use crate::{proc::loader::PROC_LOADER, sync::UPSafeCell};
 
 use super::ProcControlBlock;
 
 lazy_static! {
     /// A global instance of the process manager.
     pub static ref PROC_MANAGER: UPSafeCell<ProcManager> = unsafe { UPSafeCell::new(ProcManager::new()) };
+    /// A global instance of the init process control block.``
+    pub static ref INIT_PROC: Arc<ProcControlBlock> = Arc::new(ProcControlBlock::new(
+        PROC_LOADER.get_app_data_by_name("init").unwrap()
+    ));
 }
 
 pub struct ProcManager {
@@ -19,13 +23,13 @@ impl ProcManager {
     fn new() -> Self {
         info!("Initializing process manager...");
         Self {
-            procs: VecDeque::new(),
+            procs: VecDeque::from([INIT_PROC.clone()]),
         }
     }
 
-    pub fn push(&mut self, proc: Arc<ProcControlBlock>) {
-        self.procs.push_back(proc);
-    }
+    // pub fn push(&mut self, proc: Arc<ProcControlBlock>) {
+    //     self.procs.push_back(proc);
+    // }
 
     pub fn pop(&mut self) -> Option<Arc<ProcControlBlock>> {
         self.procs.pop_front()

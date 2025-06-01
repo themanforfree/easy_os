@@ -1,23 +1,34 @@
 use core::cell::RefMut;
 
+use alloc::{
+    sync::{Arc, Weak},
+    vec::Vec,
+};
+
 use crate::{
     config::{TRAP_FRAME, kernel_stack_position},
     memory::{KERNEL_SPACE, MapPermission, MemorySpace, PhysPageNum, VirtAddr},
+    proc::INIT_PROC,
     sync::UPSafeCell,
     trap::{TrapFrame, trap_handler},
 };
 
-use super::{ProcContext, pid::PID_ALLOCATOR};
+use super::{
+    ProcContext,
+    pid::{PID_ALLOCATOR, PidTracker},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcStatus {
     Ready,
     Running,
     // Waiting,
+    Zombie,
     // Terminated,
 }
 
 pub struct ProcControlBlock {
+    pid: PidTracker,
     inner: UPSafeCell<ProcControlBlockInner>,
 }
 
@@ -28,6 +39,10 @@ pub struct ProcControlBlockInner {
     pub trap_frame_ppn: PhysPageNum,
     #[allow(dead_code)]
     pub base_size: usize,
+    pub exit_code: i32,
+
+    pub parent: Option<Weak<ProcControlBlock>>, // TODO: remove Option?
+    pub children: Vec<Arc<ProcControlBlock>>,
 }
 
 impl ProcControlBlock {
@@ -46,6 +61,7 @@ impl ProcControlBlock {
             MapPermission::R | MapPermission::W,
         );
         let pcb = Self {
+            pid,
             inner: unsafe {
                 UPSafeCell::new(ProcControlBlockInner {
                     status,
@@ -53,6 +69,9 @@ impl ProcControlBlock {
                     memory_space,
                     trap_frame_ppn,
                     base_size: user_sp,
+                    exit_code: 0,
+                    parent: None,
+                    children: Vec::new(),
                 })
             },
         };
@@ -70,6 +89,19 @@ impl ProcControlBlock {
     pub fn borrow_inner_mut(&self) -> RefMut<'_, ProcControlBlockInner> {
         self.inner.borrow_mut()
     }
+
+    pub fn pid(&self) -> usize {
+        self.pid.0
+    }
+
+    pub fn extend_children(&self, children: impl Iterator<Item = Arc<ProcControlBlock>>) {
+        assert_eq!(self.pid.0, 0, "Only init process can extend children");
+        let mut inner = self.inner.borrow_mut();
+        for child in children {
+            child.borrow_inner_mut().parent = Some(Arc::downgrade(&INIT_PROC));
+            inner.children.push(child);
+        }
+    }
 }
 
 impl ProcControlBlockInner {
@@ -79,9 +111,5 @@ impl ProcControlBlockInner {
 
     pub fn get_trap_frame_mut(&self) -> &'static mut TrapFrame {
         self.trap_frame_ppn.get_mut()
-    }
-
-    pub fn get_ctx_ptr(&self) -> *const ProcContext {
-        &self.ctx as *const _
     }
 }

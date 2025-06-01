@@ -217,6 +217,10 @@ impl MemorySpace {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.areas.clear();
+    }
+
     fn map_trampoline(&mut self) {
         let vpn = VirtAddr::new(TRAMPOLINE).page_number();
         let ppn = PhysAddr::new(strampoline as usize).page_number();
