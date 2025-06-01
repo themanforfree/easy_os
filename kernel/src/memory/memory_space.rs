@@ -245,9 +245,13 @@ impl MemorySpace {
         perm: MapPermission,
         data: &[u8],
     ) {
-        let mut area = MapArea::new(start_vpn, end_vpn, map_type, perm);
+        let area = MapArea::new(start_vpn, end_vpn, map_type, perm);
+        self.map_range_with_data_inner(area, data);
+    }
+
+    fn map_range_with_data_inner(&mut self, mut area: MapArea, data: &[u8]) {
         for vpn in area.range() {
-            let ppn = match map_type {
+            let ppn = match area.map_type {
                 MapType::Identical => PhysPageNum::new(usize::from(vpn)),
                 MapType::Framed => {
                     let frame = FRAME_ALLOCATOR.borrow_mut().frame_alloc().unwrap();
@@ -257,11 +261,32 @@ impl MemorySpace {
                 }
             };
             self.page_table
-                .map(vpn, ppn, PTEFlags::from_bits(perm.bits()).unwrap());
+                .map(vpn, ppn, PTEFlags::from_bits(area.map_perm.bits()).unwrap());
         }
         if !data.is_empty() {
-            self.page_table.copy_out(start_vpn, end_vpn, data);
+            self.page_table.copy_out(area.start_vpn, area.end_vpn, data);
         }
         self.areas.push(area);
+    }
+}
+
+impl Clone for MemorySpace {
+    fn clone(&self) -> Self {
+        let mut new_space = Self::new_bare();
+        new_space.map_trampoline();
+
+        for area in self.areas.iter() {
+            let new_area = area.clone();
+            new_space.map_range_with_data_inner(new_area, &[]);
+            // Copy data
+            for vpn in area.range() {
+                let src_ppn = self.page_table.translate(vpn).unwrap().ppn();
+                let dst_ppn = new_space.page_table.translate(vpn).unwrap().ppn();
+                dst_ppn
+                    .get_bytes_array()
+                    .copy_from_slice(src_ppn.get_bytes_array());
+            }
+        }
+        new_space
     }
 }

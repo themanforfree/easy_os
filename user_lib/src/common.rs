@@ -1,3 +1,5 @@
+use crate::exit;
+
 #[panic_handler]
 fn panic_handler(panic_info: &core::panic::PanicInfo) -> ! {
     let err = panic_info.message();
@@ -11,7 +13,8 @@ fn panic_handler(panic_info: &core::panic::PanicInfo) -> ! {
     } else {
         println!("Panicked: {}", err);
     }
-    loop {}
+    exit(1);
+    unreachable!("sys_exit should not return");
 }
 
 pub fn clear_bss() {

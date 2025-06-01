@@ -30,3 +30,19 @@ pub fn write(fd: usize, buffer: &[u8]) -> isize {
 pub fn exit(exit_code: i32) -> isize {
     syscall::sys_exit(exit_code)
 }
+
+pub fn fork() -> isize {
+    syscall::sys_fork()
+}
+
+pub fn exec(_path: &str) -> isize {
+    todo!()
+}
+
+pub fn yield_() -> isize {
+    todo!()
+}
+
+pub fn wait(_exit_code: &mut i32) -> isize {
+    todo!()
+}

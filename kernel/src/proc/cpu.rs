@@ -23,8 +23,8 @@ impl Cpu {
         }
     }
 
-    pub fn current(&self) -> Arc<ProcControlBlock> {
-        self.current.clone().unwrap()
+    pub fn current(&self) -> Option<Arc<ProcControlBlock>> {
+        self.current.clone()
     }
 
     pub fn take_current(&mut self) -> Option<Arc<ProcControlBlock>> {
@@ -43,7 +43,8 @@ impl Cpu {
 pub fn run() {
     loop {
         let mut processor = CPU.borrow_mut();
-        if let Some(proc) = PROC_MANAGER.borrow_mut().pop() {
+        let proc_opt = PROC_MANAGER.borrow_mut().pop();
+        if let Some(proc) = proc_opt {
             let scheduler_ctx = processor.get_scheduler_ctx_ptr();
             let mut proc_inner = proc.borrow_inner_mut();
             let proc_ctx = &proc_inner.ctx as *const _;

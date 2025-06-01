@@ -28,7 +28,7 @@ pub fn init() {
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
-    let proc = CPU.borrow_mut().current();
+    let proc = CPU.borrow_mut().current().unwrap();
     let cx = proc.borrow_inner_mut().get_trap_frame_mut();
     let scause = scause::read(); // get trap cause
     let stval = stval::read(); // get extra value
@@ -74,29 +74,12 @@ pub fn trap_handler() -> ! {
     trap_return();
 }
 
-#[unsafe(no_mangle)]
-pub fn trap_from_kernel() -> ! {
-    panic!("a trap from kernel!");
-}
-
-fn set_kernel_trap_entry() {
-    unsafe {
-        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
-    }
-}
-
-fn set_user_trap_entry() {
-    unsafe {
-        stvec::write(TRAMPOLINE, TrapMode::Direct);
-    }
-}
-
 /// Return to user space after handling a trap
 /// The First user process will call this function to enter to user space.
 pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = TRAP_FRAME;
-    let proc = CPU.borrow_mut().current();
+    let proc = CPU.borrow_mut().current().unwrap();
     let user_satp = proc.borrow_inner_mut().get_token();
 
     unsafe extern "C" {
@@ -116,5 +99,22 @@ pub fn trap_return() -> ! {
             in("a1") user_satp,
             options(noreturn),
         );
+    }
+}
+
+#[unsafe(no_mangle)]
+pub fn trap_from_kernel() -> ! {
+    panic!("a trap from kernel!");
+}
+
+fn set_kernel_trap_entry() {
+    unsafe {
+        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+    }
+}
+
+fn set_user_trap_entry() {
+    unsafe {
+        stvec::write(TRAMPOLINE, TrapMode::Direct);
     }
 }

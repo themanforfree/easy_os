@@ -2,7 +2,7 @@
 use log::{info, trace};
 
 use crate::{
-    proc::{CPU, INIT_PROC, ProcStatus, schedule},
+    proc::{CPU, INIT_PROC, PROC_MANAGER, ProcStatus, schedule},
     sbi::shutdown,
 };
 
@@ -10,6 +10,7 @@ const INIT_PROC_PID: usize = 0;
 
 /// task exits and submit an exit code
 pub fn sys_exit(exit_code: i32) -> ! {
+    trace!("sys_exit: exit_code = {exit_code}");
     let proc = CPU.borrow_mut().take_current().unwrap();
     let pid = proc.pid();
     trace!("Process {pid} exits with exit code {exit_code}");
@@ -39,4 +40,18 @@ pub fn sys_exit(exit_code: i32) -> ! {
     schedule(ctx);
 
     unreachable!("Process {} should not return from sys_exit", pid);
+}
+
+pub fn sys_fork() -> isize {
+    trace!("sys_fork");
+    let parent = CPU.borrow_mut().current().unwrap();
+    let child = parent.fork();
+
+    let child_pid = child.pid();
+    let child_trap_frame = child.borrow_inner_mut().get_trap_frame_mut();
+    child_trap_frame.x[10] = 0;
+
+    PROC_MANAGER.borrow_mut().push(child);
+
+    child_pid as isize
 }

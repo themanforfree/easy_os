@@ -102,6 +102,43 @@ impl ProcControlBlock {
             inner.children.push(child);
         }
     }
+
+    pub fn fork(self: &Arc<Self>) -> Arc<Self> {
+        let mut parent_inner = self.borrow_inner_mut();
+        let child_space = parent_inner.memory_space.clone();
+        let trap_frame_ppn = child_space
+            .translate(VirtAddr::new(TRAP_FRAME).page_number())
+            .unwrap()
+            .ppn();
+        let child_pid = PID_ALLOCATOR.borrow_mut().alloc();
+        let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(child_pid.0);
+        KERNEL_SPACE.borrow_mut().insert_framed_area(
+            VirtAddr::new(kernel_stack_bottom),
+            VirtAddr::new(kernel_stack_top),
+            MapPermission::R | MapPermission::W,
+        );
+        let child_pcb = Arc::new(Self {
+            pid: child_pid,
+            inner: unsafe {
+                UPSafeCell::new(ProcControlBlockInner {
+                    status: ProcStatus::Ready,
+                    ctx: ProcContext::goto_trap_return(kernel_stack_top),
+                    memory_space: child_space,
+                    trap_frame_ppn,
+                    base_size: parent_inner.base_size,
+                    exit_code: 0,
+                    parent: Some(Arc::downgrade(self)),
+                    children: Vec::new(),
+                })
+            },
+        });
+        parent_inner.children.push(Arc::clone(&child_pcb));
+
+        let trap_frame = child_pcb.borrow_inner_mut().get_trap_frame_mut();
+        trap_frame.kernel_sp = kernel_stack_top;
+
+        child_pcb
+    }
 }
 
 impl ProcControlBlockInner {

@@ -7,12 +7,12 @@ use bitflags::bitflags;
 use super::{VirtPageNum, frame_allocator::FrameTracker};
 
 pub struct MapArea {
-    start_vpn: VirtPageNum,
-    end_vpn: VirtPageNum,
-    data_frames: BTreeMap<VirtPageNum, FrameTracker>,
-    map_type: MapType,
+    pub start_vpn: VirtPageNum,
+    pub end_vpn: VirtPageNum,
+    pub map_type: MapType,
     #[allow(unused)]
-    map_perm: MapPermission,
+    pub map_perm: MapPermission,
+    data_frames: BTreeMap<VirtPageNum, FrameTracker>,
 }
 
 impl MapArea {
@@ -40,6 +40,18 @@ impl MapArea {
             self.data_frames.insert(vpn, frame);
         } else {
             panic!("Cannot insert frame into an identical map area");
+        }
+    }
+}
+
+impl Clone for MapArea {
+    fn clone(&self) -> Self {
+        Self {
+            start_vpn: self.start_vpn,
+            end_vpn: self.end_vpn,
+            data_frames: BTreeMap::new(),
+            map_type: self.map_type,
+            map_perm: self.map_perm,
         }
     }
 }

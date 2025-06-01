@@ -27,9 +27,9 @@ impl ProcManager {
         }
     }
 
-    // pub fn push(&mut self, proc: Arc<ProcControlBlock>) {
-    //     self.procs.push_back(proc);
-    // }
+    pub fn push(&mut self, proc: Arc<ProcControlBlock>) {
+        self.procs.push_back(proc);
+    }
 
     pub fn pop(&mut self) -> Option<Arc<ProcControlBlock>> {
         self.procs.pop_front()
