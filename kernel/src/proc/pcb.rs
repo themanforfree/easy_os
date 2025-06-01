@@ -6,8 +6,8 @@ use alloc::{
 };
 
 use crate::{
-    config::{TRAP_FRAME, kernel_stack_position},
-    memory::{KERNEL_SPACE, MapPermission, MemorySpace, PhysPageNum, VirtAddr},
+    config::TRAP_FRAME,
+    memory::{KERNEL_SPACE, MemorySpace, PhysPageNum, VirtAddr},
     proc::INIT_PROC,
     sync::UPSafeCell,
     trap::{TrapFrame, trap_handler},
@@ -15,6 +15,7 @@ use crate::{
 
 use super::{
     ProcContext,
+    kernel_stack::KernelStack,
     pid::{PID_ALLOCATOR, PidTracker},
 };
 
@@ -29,6 +30,7 @@ pub enum ProcStatus {
 
 pub struct ProcControlBlock {
     pid: PidTracker,
+    kernel_stack: KernelStack,
     inner: UPSafeCell<ProcControlBlockInner>,
 }
 
@@ -54,14 +56,11 @@ impl ProcControlBlock {
             .ppn();
         let status = ProcStatus::Ready;
         let pid = PID_ALLOCATOR.borrow_mut().alloc();
-        let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(pid.0);
-        KERNEL_SPACE.borrow_mut().insert_framed_area(
-            VirtAddr::new(kernel_stack_bottom),
-            VirtAddr::new(kernel_stack_top),
-            MapPermission::R | MapPermission::W,
-        );
+        let kernel_stack = KernelStack::new(&pid);
+        let kernel_stack_top = kernel_stack.get_top();
         let pcb = Self {
             pid,
+            kernel_stack,
             inner: unsafe {
                 UPSafeCell::new(ProcControlBlockInner {
                     status,
@@ -84,6 +83,27 @@ impl ProcControlBlock {
             trap_handler as usize, // physical address of trap handler
         );
         pcb
+    }
+
+    pub fn exec(&self, elf_data: &[u8]) {
+        let (memory_space, user_sp, entry_point) = MemorySpace::from_elf(elf_data);
+        let trap_frame_ppn = memory_space
+            .translate(VirtAddr::new(TRAP_FRAME).page_number())
+            .unwrap()
+            .ppn();
+
+        let mut inner = self.inner.borrow_mut();
+        inner.memory_space = memory_space;
+        inner.trap_frame_ppn = trap_frame_ppn;
+        inner.base_size = user_sp;
+        let trap_frame = inner.get_trap_frame_mut();
+        *trap_frame = TrapFrame::new(
+            entry_point,
+            user_sp,
+            KERNEL_SPACE.borrow_mut().token(),
+            self.kernel_stack.get_top(),
+            trap_handler as usize, // physical address of trap handler
+        );
     }
 
     pub fn borrow_inner_mut(&self) -> RefMut<'_, ProcControlBlockInner> {
@@ -111,14 +131,11 @@ impl ProcControlBlock {
             .unwrap()
             .ppn();
         let child_pid = PID_ALLOCATOR.borrow_mut().alloc();
-        let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(child_pid.0);
-        KERNEL_SPACE.borrow_mut().insert_framed_area(
-            VirtAddr::new(kernel_stack_bottom),
-            VirtAddr::new(kernel_stack_top),
-            MapPermission::R | MapPermission::W,
-        );
+        let kernel_stack = KernelStack::new(&child_pid);
+        let kernel_stack_top = kernel_stack.get_top();
         let child_pcb = Arc::new(Self {
             pid: child_pid,
+            kernel_stack,
             inner: unsafe {
                 UPSafeCell::new(ProcControlBlockInner {
                     status: ProcStatus::Ready,

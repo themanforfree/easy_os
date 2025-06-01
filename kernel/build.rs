@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{self, File},
+    fs::{self, File, read_dir},
     io::{Result, Write},
     path::PathBuf,
 };
@@ -23,15 +23,14 @@ fn insert_app_data() -> Result<()> {
     let target_path = out_dir.ancestors().nth(4).unwrap();
 
     let mut f = File::create("src/link_app.S")?;
-    // let apps: Vec<_> = read_dir("../user_lib/src/bin")
-    //     .unwrap()
-    //     .map(|dir_entry| {
-    //         let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
-    //         name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
-    //         name_with_ext
-    //     })
-    //     .collect();
-    let apps = ["init"];
+    let apps: Vec<_> = read_dir("../user_lib/src/bin")
+        .unwrap()
+        .map(|dir_entry| {
+            let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
+            name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
+            name_with_ext
+        })
+        .collect();
 
     writeln!(
         f,

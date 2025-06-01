@@ -1,9 +1,12 @@
 //! App management syscalls
 use alloc::sync::Arc;
-use log::{info, trace};
+use log::{info, trace, warn};
 
 use crate::{
-    proc::{CPU, INIT_PROC, PROC_MANAGER, ProcStatus, schedule},
+    proc::{
+        INIT_PROC, PROC_LOADER, PROC_MANAGER, ProcStatus, current_proc, schedule,
+        suspend_current_and_run_next, take_current_proc,
+    },
     sbi::shutdown,
 };
 
@@ -12,7 +15,7 @@ const INIT_PROC_PID: usize = 0;
 /// task exits and submit an exit code
 pub fn sys_exit(exit_code: i32) -> ! {
     trace!("sys_exit: exit_code = {exit_code}");
-    let proc = CPU.borrow_mut().take_current().unwrap();
+    let proc = take_current_proc();
     let pid = proc.pid();
     trace!("Process {pid} exits with exit code {exit_code}");
 
@@ -38,6 +41,8 @@ pub fn sys_exit(exit_code: i32) -> ! {
     // TODO: should we free the page table?
     inner.memory_space.clear();
     let ctx = &mut inner.ctx as *mut _;
+    drop(inner);
+    drop(proc);
     schedule(ctx);
 
     unreachable!("Process {} should not return from sys_exit", pid);
@@ -45,19 +50,13 @@ pub fn sys_exit(exit_code: i32) -> ! {
 
 pub fn sys_yield() -> isize {
     trace!("sys_yield");
-    let proc = CPU.borrow_mut().current().unwrap();
-    let mut inner = proc.borrow_inner_mut();
-    inner.status = ProcStatus::Ready;
-    let ctx = &mut inner.ctx as *mut _;
-    drop(inner);
-    PROC_MANAGER.borrow_mut().push(proc);
-    schedule(ctx);
+    suspend_current_and_run_next();
     0
 }
 
 pub fn sys_fork() -> isize {
     trace!("sys_fork");
-    let parent = CPU.borrow_mut().current().unwrap();
+    let parent = current_proc();
     let child = parent.fork();
 
     let child_pid = child.pid();
@@ -69,14 +68,27 @@ pub fn sys_fork() -> isize {
     child_pid as isize
 }
 
-pub fn sys_exec(_path: *const u8) -> isize {
-    todo!()
+pub fn sys_exec(path: *const u8) -> isize {
+    let proc = current_proc();
+    let name = proc
+        .borrow_inner_mut()
+        .memory_space
+        .read_c_str(path)
+        .unwrap();
+    trace!("sys_exec: path = {name}");
+    if let Some(elf_data) = PROC_LOADER.get_app_data_by_name(&name) {
+        proc.exec(elf_data);
+        0
+    } else {
+        warn!("sys_exec: app {name} not found");
+        -1
+    }
 }
 
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, status: *mut i32) -> isize {
-    let proc = CPU.borrow_mut().current().unwrap();
+    let proc = current_proc();
     let mut proc_inner = proc.borrow_inner_mut();
 
     let Some(idx) = proc_inner

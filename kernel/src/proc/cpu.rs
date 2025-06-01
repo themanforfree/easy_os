@@ -7,37 +7,52 @@ use super::{PROC_MANAGER, ProcContext, ProcControlBlock, ProcStatus, switch};
 
 lazy_static! {
     /// A global instance of the CPU.
-    pub static ref CPU: UPSafeCell<Cpu> = unsafe { UPSafeCell::new(Cpu::new()) };
+    static ref CPU: UPSafeCell<Cpu> = unsafe { UPSafeCell::new(Cpu::new()) };
 }
 
-pub struct Cpu {
+struct Cpu {
     current: Option<Arc<ProcControlBlock>>,
     scheduler_ctx: ProcContext,
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             current: None,
             scheduler_ctx: ProcContext::zero_init(),
         }
     }
 
-    pub fn current(&self) -> Option<Arc<ProcControlBlock>> {
+    fn current(&self) -> Option<Arc<ProcControlBlock>> {
         self.current.clone()
     }
 
-    pub fn take_current(&mut self) -> Option<Arc<ProcControlBlock>> {
+    fn take_current(&mut self) -> Option<Arc<ProcControlBlock>> {
         self.current.take()
     }
 
-    pub fn set_current(&mut self, proc: Arc<ProcControlBlock>) {
+    fn set_current(&mut self, proc: Arc<ProcControlBlock>) {
         self.current = Some(proc);
     }
 
-    pub fn get_scheduler_ctx_ptr(&mut self) -> *mut ProcContext {
+    fn get_scheduler_ctx_ptr(&mut self) -> *mut ProcContext {
         &mut self.scheduler_ctx as *mut _
     }
+}
+
+pub fn current_proc() -> Arc<ProcControlBlock> {
+    CPU.borrow_mut().current().expect("No current process")
+}
+
+pub fn take_current_proc() -> Arc<ProcControlBlock> {
+    CPU.borrow_mut().take_current().expect("No current process")
+}
+
+pub fn current_token() -> usize {
+    current_proc().borrow_inner_mut().get_token()
+}
+pub fn current_trap_frame_mut() -> &'static mut crate::trap::TrapFrame {
+    current_proc().borrow_inner_mut().get_trap_frame_mut()
 }
 
 pub fn run() {

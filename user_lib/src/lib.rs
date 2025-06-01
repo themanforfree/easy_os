@@ -35,8 +35,8 @@ pub fn fork() -> isize {
     syscall::sys_fork()
 }
 
-pub fn exec(_path: &str) -> isize {
-    todo!()
+pub fn exec(path: &str) -> isize {
+    syscall::sys_exec(path)
 }
 
 pub fn yield_() -> isize {

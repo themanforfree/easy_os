@@ -4,7 +4,7 @@ use log::info;
 
 use crate::{proc::loader::PROC_LOADER, sync::UPSafeCell};
 
-use super::ProcControlBlock;
+use super::{ProcControlBlock, ProcStatus, schedule, take_current_proc};
 
 lazy_static! {
     /// A global instance of the process manager.
@@ -96,4 +96,14 @@ impl ProcManager {
     //     unsafe { switch(&mut _unused as *mut _, next_proc_cx_ptr) };
     //     panic!("unreachable in run_first_proc!");
     // }
+}
+
+pub fn suspend_current_and_run_next() {
+    let proc = take_current_proc();
+    let mut inner = proc.borrow_inner_mut();
+    inner.status = ProcStatus::Ready;
+    let ctx = &mut inner.ctx as *mut _;
+    drop(inner);
+    PROC_MANAGER.borrow_mut().push(proc);
+    schedule(ctx);
 }

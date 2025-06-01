@@ -2,7 +2,7 @@
 
 use log::trace;
 
-use crate::{memory::PageTable, proc::CPU};
+use crate::{memory::PageTable, proc::current_token};
 
 const FD_STDOUT: usize = 1;
 
@@ -11,8 +11,7 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("sys_write: fd = {fd}, buf = {buf:p}, len = {len}");
     match fd {
         FD_STDOUT => {
-            let proc = CPU.borrow_mut().current().unwrap();
-            let token = proc.borrow_inner_mut().get_token();
+            let token = current_token();
             let pt = PageTable::from_token(token);
             let slice = pt.copy_in(buf, len);
             let str = core::str::from_utf8(&slice).unwrap();

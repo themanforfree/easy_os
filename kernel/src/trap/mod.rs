@@ -10,7 +10,7 @@ use riscv::register::{
 pub use self::trap_frame::TrapFrame;
 use crate::{
     config::{TRAMPOLINE, TRAP_FRAME},
-    proc::CPU,
+    proc::{current_token, current_trap_frame_mut, suspend_current_and_run_next},
     syscall::syscall,
     timer::set_next_trigger,
 };
@@ -28,15 +28,19 @@ pub fn init() {
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
-    let proc = CPU.borrow_mut().current().unwrap();
-    let cx = proc.borrow_inner_mut().get_trap_frame_mut();
     let scause = scause::read(); // get trap cause
     let stval = stval::read(); // get extra value
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
+            let trap_frame = current_trap_frame_mut();
             // 系统调用，恢复到用户态后不需要重复执行，将 sepc 加 4 设置为 ecall 之后的一条指令
-            cx.sepc += 4;
-            cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+            trap_frame.sepc += 4;
+            let result = syscall(
+                trap_frame.x[17],
+                [trap_frame.x[10], trap_frame.x[11], trap_frame.x[12]],
+            ) as usize;
+            let trap_frame = current_trap_frame_mut();
+            trap_frame.x[10] = result; // syscall return value
         }
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
@@ -59,9 +63,7 @@ pub fn trap_handler() -> ! {
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             set_next_trigger();
-            // PROC_MANAGER.mark_current_suspended();
-            // PROC_MANAGER.run_next_task();
-            // todo!()
+            suspend_current_and_run_next();
         }
         _ => {
             panic!(
@@ -79,8 +81,7 @@ pub fn trap_handler() -> ! {
 pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = TRAP_FRAME;
-    let proc = CPU.borrow_mut().current().unwrap();
-    let user_satp = proc.borrow_inner_mut().get_token();
+    let user_satp = current_token();
 
     unsafe extern "C" {
         /// The entry point for user space traps, which is the trampoline code.

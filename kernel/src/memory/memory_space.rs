@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
 use riscv::register::satp;
 
@@ -187,7 +187,7 @@ impl MemorySpace {
             MapType::Framed,
             MapPermission::R | MapPermission::W | MapPermission::U,
         );
-        // map TrapContext
+        // map TrapFrame
         space.map_range(
             VirtAddr::new(TRAP_FRAME).page_number(),
             VirtAddr::new(TRAMPOLINE).page_number(),
@@ -205,16 +205,29 @@ impl MemorySpace {
         self.page_table.translate(vpn)
     }
 
-    pub fn translated_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
-        let va = VirtAddr::new(ptr as usize);
+    pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
         self.translate(va.page_number())
-            .map(|pte| {
-                let aligned_pa = PhysAddr::from(pte.ppn());
-                let offset = va.page_offset();
-                let pa = aligned_pa + offset;
-                pa.get_mut()
-            })
-            .unwrap()
+            .map(|pte| PhysAddr::from(pte.ppn()) + va.page_offset())
+    }
+
+    pub fn translated_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
+        self.translate_va(VirtAddr::new(ptr as usize))
+            .map(|pa| pa.get_mut())
+            .expect("Failed to translate virtual address")
+    }
+
+    pub fn read_c_str(&self, ptr: *const u8) -> Option<String> {
+        let mut s = String::new();
+        let mut va = VirtAddr::new(ptr as usize);
+        loop {
+            let ch = *self.translate_va(va)?.get_mut::<u8>(); // TODO: optimize this
+            if ch == 0 {
+                break;
+            }
+            s.push(ch as char); // TODO: optimize this to support UTF-8
+            va += 1;
+        }
+        Some(s)
     }
 
     pub fn token(&self) -> usize {

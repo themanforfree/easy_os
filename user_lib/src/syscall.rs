@@ -4,6 +4,7 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_FORK: usize = 220;
+const SYSCALL_EXEC: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
 
 // TODO: refactor syscall as a macro
@@ -39,4 +40,8 @@ pub fn sys_waitpid(pid: isize, status: *mut i32) -> isize {
 
 pub fn sys_yield() -> isize {
     syscall(SYSCALL_YIELD, [0, 0, 0])
+}
+
+pub fn sys_exec(path: &str) -> isize {
+    syscall(SYSCALL_EXEC, [path.as_ptr() as usize, 0, 0])
 }
