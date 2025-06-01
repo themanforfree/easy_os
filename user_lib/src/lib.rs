@@ -40,9 +40,29 @@ pub fn exec(_path: &str) -> isize {
 }
 
 pub fn yield_() -> isize {
-    todo!()
+    syscall::sys_yield()
 }
 
-pub fn wait(_exit_code: &mut i32) -> isize {
-    todo!()
+pub fn wait(exit_code: &mut i32) -> isize {
+    loop {
+        match syscall::sys_waitpid(-1, exit_code as *mut _) {
+            -2 => {
+                yield_();
+            }
+            // -1 or a real pid
+            exit_pid => return exit_pid,
+        }
+    }
+}
+
+pub fn waitpid(pid: usize, exit_code: &mut i32) -> isize {
+    loop {
+        match syscall::sys_waitpid(pid as isize, exit_code as *mut _) {
+            -2 => {
+                yield_();
+            }
+            // -1 or a real pid
+            exit_pid => return exit_pid,
+        }
+    }
 }

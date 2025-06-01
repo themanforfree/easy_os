@@ -149,4 +149,8 @@ impl ProcControlBlockInner {
     pub fn get_trap_frame_mut(&self) -> &'static mut TrapFrame {
         self.trap_frame_ppn.get_mut()
     }
+
+    pub fn is_zombie(&self) -> bool {
+        self.status == ProcStatus::Zombie
+    }
 }

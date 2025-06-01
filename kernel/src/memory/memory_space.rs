@@ -205,6 +205,18 @@ impl MemorySpace {
         self.page_table.translate(vpn)
     }
 
+    pub fn translated_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
+        let va = VirtAddr::new(ptr as usize);
+        self.translate(va.page_number())
+            .map(|pte| {
+                let aligned_pa = PhysAddr::from(pte.ppn());
+                let offset = va.page_offset();
+                let pa = aligned_pa + offset;
+                pa.get_mut()
+            })
+            .unwrap()
+    }
+
     pub fn token(&self) -> usize {
         self.page_table.token()
     }

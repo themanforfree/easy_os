@@ -52,6 +52,10 @@ impl PhysAddr {
     pub fn next_page_number(&self) -> PhysPageNum {
         PhysPageNum((self.0 + PAGE_SIZE - 1) >> 12)
     }
+
+    pub fn get_mut<T>(&self) -> &'static mut T {
+        unsafe { (self.0 as *mut T).as_mut().unwrap() }
+    }
 }
 
 impl PhysPageNum {
@@ -100,6 +104,14 @@ impl From<PhysAddr> for usize {
 impl From<PhysPageNum> for usize {
     fn from(ppn: PhysPageNum) -> Self {
         ppn.0
+    }
+}
+
+impl Add<usize> for PhysAddr {
+    type Output = PhysAddr;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        PhysAddr(self.0 + rhs)
     }
 }
 
