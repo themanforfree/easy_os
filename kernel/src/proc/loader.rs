@@ -65,7 +65,7 @@ impl ProcLoader {
     pub fn list_apps(&self) {
         info!("/**** APPS ****");
         for app in self.app_names.iter() {
-            info!("{}", app);
+            info!("{app}");
         }
         info!("**************/");
     }

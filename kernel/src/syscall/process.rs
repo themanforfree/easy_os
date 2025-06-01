@@ -12,10 +12,10 @@ const INIT_PROC_PID: usize = 0;
 pub fn sys_exit(exit_code: i32) -> ! {
     let proc = CPU.borrow_mut().take_current().unwrap();
     let pid = proc.pid();
-    trace!("Process {} exits with exit code {}", pid, exit_code);
+    trace!("Process {pid} exits with exit code {exit_code}");
 
     if pid == INIT_PROC_PID {
-        info!("Init process exits with exit code {}", exit_code);
+        info!("Init process exits with exit code {exit_code}");
         if exit_code != 0 {
             shutdown(true)
         } else {
