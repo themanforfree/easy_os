@@ -23,6 +23,10 @@ fn main() -> i32 {
     unreachable!("main() should be defined in user program");
 }
 
+pub fn read(fd: usize, buffer: &mut [u8]) -> isize {
+    syscall::sys_read(fd, buffer)
+}
+
 pub fn write(fd: usize, buffer: &[u8]) -> isize {
     syscall::sys_write(fd, buffer)
 }

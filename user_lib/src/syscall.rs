@@ -21,6 +21,10 @@ macro_rules! syscall {
     }};
 }
 
+pub fn sys_read(fd: usize, buffer: &mut [u8]) -> isize {
+    syscall!(SYSCALL_READ, fd, buffer.as_mut_ptr() as usize, buffer.len())
+}
+
 pub fn sys_write(fd: usize, buffer: &[u8]) -> isize {
     syscall!(SYSCALL_WRITE, fd, buffer.as_ptr() as usize, buffer.len())
 }

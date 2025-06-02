@@ -13,7 +13,7 @@ log = "0.4.27"
 riscv = { git = "https://github.com/rcore-os/riscv", features = [
     "inline-asm",
 ] } # TODO: use other riscv in crates.io
-sbi-rt = "0.0.3"
+sbi-rt = { version = "0.0.3", features = ["legacy"] }
 syscall_id = { path = "../syscall_id" }
 xmas-elf = "0.10.0"
 
