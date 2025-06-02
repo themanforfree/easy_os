@@ -6,20 +6,17 @@
 //!  55                            12 11           0
 //! ```
 
-use core::{
-    fmt::Debug,
-    ops::{Add, AddAssign, Sub},
-};
+use core::fmt::Debug;
 
 use crate::{config::PAGE_SIZE, memory::page_table::PageTableEntry};
 
 const PA_WIDTH_SV39: usize = 56;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct PhysAddr(usize);
+pub struct PhysAddr(pub(super) usize);
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct PhysPageNum(usize);
+pub struct PhysPageNum(pub(super) usize);
 
 impl PhysAddr {
     pub fn zero() -> Self {
@@ -92,48 +89,6 @@ impl Debug for PhysAddr {
 impl Debug for PhysPageNum {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "PhysPageNum({:#x})", self.0)
-    }
-}
-
-impl From<PhysAddr> for usize {
-    fn from(addr: PhysAddr) -> Self {
-        addr.0
-    }
-}
-
-impl From<PhysPageNum> for usize {
-    fn from(ppn: PhysPageNum) -> Self {
-        ppn.0
-    }
-}
-
-impl Add<usize> for PhysAddr {
-    type Output = PhysAddr;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        PhysAddr(self.0 + rhs)
-    }
-}
-
-impl Add<usize> for PhysPageNum {
-    type Output = PhysPageNum;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        PhysPageNum(self.0 + rhs)
-    }
-}
-
-impl Sub<usize> for PhysPageNum {
-    type Output = PhysPageNum;
-
-    fn sub(self, rhs: usize) -> Self::Output {
-        PhysPageNum(self.0 - rhs)
-    }
-}
-
-impl AddAssign<usize> for PhysPageNum {
-    fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs;
     }
 }
 
