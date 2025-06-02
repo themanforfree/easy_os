@@ -10,7 +10,10 @@ use riscv::register::{
 pub use self::trap_frame::TrapFrame;
 use crate::{
     config::{TRAMPOLINE, TRAP_FRAME},
-    proc::{current_token, current_trap_frame_mut, suspend_current_and_run_next},
+    proc::{
+        current_token, current_trap_frame_mut, exit_current_and_run_next,
+        suspend_current_and_run_next,
+    },
     syscall::syscall,
     timer::set_next_trigger,
 };
@@ -45,21 +48,19 @@ pub fn trap_handler() -> ! {
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
         | Trap::Exception(Exception::LoadFault)
-        | Trap::Exception(Exception::LoadPageFault) => {
+        | Trap::Exception(Exception::LoadPageFault)
+        | Trap::Exception(Exception::InstructionFault)
+        | Trap::Exception(Exception::InstructionPageFault) => {
             error!(
                 "PageFault in application, kernel killed it. fault_va = {:#x}, scause = {:?}",
                 stval,
                 scause.cause()
             );
-            // PROC_MANAGER.mark_current_exited();
-            // PROC_MANAGER.run_next_task();
-            todo!()
+            exit_current_and_run_next(-1)
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             error!("IllegalInstruction in application, kernel killed it.");
-            // PROC_MANAGER.mark_current_exited();
-            // PROC_MANAGER.run_next_task();
-            todo!()
+            exit_current_and_run_next(-3);
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             set_next_trigger();
