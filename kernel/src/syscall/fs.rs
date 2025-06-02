@@ -2,7 +2,10 @@
 
 use log::trace;
 
-use crate::{memory::PageTable, proc::current_token};
+use crate::{
+    memory::{PageTable, VirtAddr},
+    proc::current_token,
+};
 
 const FD_STDOUT: usize = 1;
 
@@ -13,7 +16,7 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         FD_STDOUT => {
             let token = current_token();
             let pt = PageTable::from_token(token);
-            let slice = pt.copy_in(buf, len);
+            let slice = pt.copy_in(VirtAddr::new(buf as usize), len);
             let str = core::str::from_utf8(&slice).unwrap();
             print!("{}", str);
             len as isize

@@ -148,67 +148,41 @@ impl PageTable {
         }
     }
 
-    pub fn copy_out(&self, start_vpn: VirtPageNum, end_vpn: VirtPageNum, data: &[u8]) {
-        let mut offset = 0;
-        let len = data.len();
-        for vpn in start_vpn..end_vpn {
-            let src = &data[offset..len.min(offset + PAGE_SIZE)];
-            let dst = &mut self.translate(vpn).unwrap().ppn().get_bytes_array()[..src.len()];
-            dst.copy_from_slice(src);
-            offset += PAGE_SIZE;
-            if offset >= len {
-                break;
-            }
+    pub fn copy_out(&self, ptr: VirtAddr, buf: &[u8]) {
+        let mut start_va = ptr;
+        let end_va = start_va + buf.len();
+        let mut written = 0;
+
+        while start_va < end_va {
+            let vpn = start_va.page_number();
+            let page_offset = start_va.page_offset();
+            let dst = self.translate(vpn).unwrap().ppn().get_bytes_array();
+
+            let bytes_to_copy = usize::min(PAGE_SIZE - page_offset, end_va - start_va);
+            let src_slice = &buf[written..written + bytes_to_copy];
+
+            dst[page_offset..page_offset + bytes_to_copy].copy_from_slice(src_slice);
+
+            start_va += bytes_to_copy;
+            written += bytes_to_copy;
         }
     }
 
-    // pub fn copy_in(&self, start_va: VirtAddr, len: usize) -> Vec<u8> {
-    //     let mut dst = Vec::with_capacity(len);
-    //     let mut copied = 0;
-    //     for vpn in start_va.page_number().. {
-    //         // every page
-    //         let ppn = self.translate(vpn).unwrap().ppn();
-    //         let src = ppn.get_bytes_array();
+    pub fn copy_in(&self, ptr: VirtAddr, len: usize) -> Vec<u8> {
+        let mut data = Vec::with_capacity(len);
+        let mut start_va = ptr;
+        let max_end_va = start_va + len;
 
-    //         let start = if copied == 0 {
-    //             start_va.page_offset()
-    //         } else {
-    //             0
-    //         };
-    //         let end = if copied + PAGE_SIZE > len {
-    //             len - copied + start
-    //         } else {
-    //             PAGE_SIZE
-    //         };
-    //         dst.extend_from_slice(&src[..len]);
-    //         copied += end - start;
-    //         if copied >= len {
-    //             break;
-    //         }
-    //     }
-    //     dst
-    // }
+        while start_va < max_end_va {
+            let vpn = start_va.page_number();
+            let page_offset = start_va.page_offset();
+            let src = self.translate(vpn).unwrap().ppn().get_bytes_array();
 
-    pub fn copy_in(&self, ptr: *const u8, len: usize) -> Vec<u8> {
-        let mut start = ptr as usize;
-        let end = start + len;
-        let mut v = Vec::new();
-        while start < end {
-            let start_va = VirtAddr::new(start);
-            let mut vpn = start_va.page_number();
-            let ppn = self.translate(vpn).unwrap().ppn();
-            vpn.step();
-            let mut end_va: VirtAddr = vpn.into();
-            end_va = end_va.min(VirtAddr::new(end));
+            let bytes_to_copy = usize::min(PAGE_SIZE - page_offset, max_end_va - start_va);
+            data.extend_from_slice(&src[page_offset..page_offset + bytes_to_copy]);
 
-            let src = ppn.get_bytes_array();
-            if end_va.page_offset() == 0 {
-                v.extend_from_slice(&src[start_va.page_offset()..]);
-            } else {
-                v.extend_from_slice(&src[start_va.page_offset()..end_va.page_offset()]);
-            }
-            start = end_va.into();
+            start_va += bytes_to_copy;
         }
-        v
+        data
     }
 }

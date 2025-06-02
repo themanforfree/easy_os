@@ -290,7 +290,8 @@ impl MemorySpace {
                 .map(vpn, ppn, PTEFlags::from_bits(area.map_perm.bits()).unwrap());
         }
         if !data.is_empty() {
-            self.page_table.copy_out(area.start_vpn, area.end_vpn, data);
+            self.page_table
+                .copy_out(VirtAddr::from(area.start_vpn), data);
         }
         self.areas.push(area);
     }

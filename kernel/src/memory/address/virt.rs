@@ -10,7 +10,7 @@
 use core::{
     fmt::Debug,
     iter::Step,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Sub},
 };
 
 use crate::config::PAGE_SIZE;
@@ -113,6 +113,21 @@ impl Add<usize> for VirtAddr {
 
     fn add(self, rhs: usize) -> Self::Output {
         Self(self.0 + rhs)
+    }
+}
+
+impl Add<usize> for VirtPageNum {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl Sub for VirtAddr {
+    type Output = usize;
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.0 - rhs.0
     }
 }
 
