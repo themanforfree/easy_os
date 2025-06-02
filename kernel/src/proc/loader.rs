@@ -24,10 +24,6 @@ impl ProcLoader {
         let num_apps_ptr = num_apps_addr as *const usize;
         let num_apps = unsafe { num_apps_ptr.read_volatile() };
         let app_pos = unsafe { core::slice::from_raw_parts(num_apps_ptr.add(1), num_apps + 1) };
-        for addr in app_pos {
-            print!("{:x} ", addr);
-        }
-        println!();
 
         let mut start_ptr = _app_names as usize as *const u8;
         let mut app_names = Vec::new();

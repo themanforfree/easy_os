@@ -2,6 +2,7 @@ use core::arch::asm;
 
 use alloc::{string::String, sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
+use log::trace;
 use riscv::register::satp;
 
 use crate::{
@@ -63,39 +64,39 @@ impl MemorySpace {
         let sbss_with_stack = sbss_with_stack as usize;
         let ebss = ebss as usize;
         let ekernel = ekernel as usize;
-        println!(".text [{:#x}, {:#x})", stext, etext);
-        println!(".rodata [{:#x}, {:#x})", srodata, erodata);
-        println!(".data [{:#x}, {:#x})", sdata, edata);
-        println!(".bss [{:#x}, {:#x})", sbss_with_stack, ebss);
-        println!("mapping .text section");
+        trace!(".text [{stext:#x}, {etext:#x})");
+        trace!(".rodata [{srodata:#x}, {erodata:#x})");
+        trace!(".data [{sdata:#x}, {edata:#x})");
+        trace!(".bss [{sbss_with_stack:#x}, {ebss:#x})");
+        trace!("mapping .text section");
         space.map_range(
             VirtAddr::new(stext).page_number(),
             VirtAddr::new(etext).page_number(),
             MapType::Identical,
             MapPermission::R | MapPermission::X,
         );
-        println!("mapping .rodata section");
+        trace!("mapping .rodata section");
         space.map_range(
             VirtAddr::new(srodata).page_number(),
             VirtAddr::new(erodata).page_number(),
             MapType::Identical,
             MapPermission::R,
         );
-        println!("mapping .data section");
+        trace!("mapping .data section");
         space.map_range(
             VirtAddr::new(sdata).page_number(),
             VirtAddr::new(edata).page_number(),
             MapType::Identical,
             MapPermission::R | MapPermission::W,
         );
-        println!("mapping .bss section");
+        trace!("mapping .bss section");
         space.map_range(
             VirtAddr::new(sbss_with_stack).page_number(),
             VirtAddr::new(ebss).page_number(),
             MapType::Identical,
             MapPermission::R | MapPermission::W,
         );
-        println!("mapping physical memory");
+        trace!("mapping physical memory");
         space.map_range(
             VirtAddr::new(ekernel).page_number(),
             VirtAddr::new(MEMORY_END).page_number(),
