@@ -1,6 +1,8 @@
-use crate::write;
+use crate::{read, write};
 use core::fmt::Write;
 struct Console;
+
+const STDIN: usize = 0;
 const STDOUT: usize = 1;
 
 impl Write for Console {
@@ -30,4 +32,10 @@ macro_rules! println {
         $crate::console::_print(core::format_args!($($arg)*));
         $crate::println!();
     }}
+}
+
+pub fn getchar() -> u8 {
+    let mut c = [0u8; 1];
+    read(STDIN, &mut c);
+    c[0]
 }

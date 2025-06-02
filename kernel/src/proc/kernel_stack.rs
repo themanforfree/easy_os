@@ -15,7 +15,7 @@ pub fn kernel_stack_position(app_id: usize) -> (usize, usize) {
 pub struct KernelStack {
     // pid: usize,
     kernel_stack_top: usize,
-    // kernel_stack_bottom: usize,
+    kernel_stack_bottom: usize,
 }
 
 impl KernelStack {
@@ -30,7 +30,7 @@ impl KernelStack {
         Self {
             // pid,
             kernel_stack_top,
-            // kernel_stack_bottom,
+            kernel_stack_bottom,
         }
     }
 
@@ -39,12 +39,11 @@ impl KernelStack {
     }
 }
 
-// impl Drop for KernelStack {
-//     fn drop(&mut self) {
-//         let (kernel_stack_bottom, _) = kernel_stack_position(self.pid);
-//         let kernel_stack_bottom_va: VirtAddr = kernel_stack_bottom.into();
-//         KERNEL_SPACE
-//             .borrow_mut()
-//             .remove_area_with_start_vpn(kernel_stack_bottom_va.into());
-//     }
-// }
+impl Drop for KernelStack {
+    fn drop(&mut self) {
+        let kernel_stack_bottom_va = VirtAddr::new(self.kernel_stack_bottom);
+        KERNEL_SPACE
+            .borrow_mut()
+            .remove_area_with_start_vpn(kernel_stack_bottom_va.page_number());
+    }
+}

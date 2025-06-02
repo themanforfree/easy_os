@@ -3,16 +3,31 @@
 #![test_runner(crate::test_utils::test_runner)]
 #![feature(linkage)]
 
+use core::ptr::addr_of_mut;
+
+use buddy_system_allocator::LockedHeap;
+
 #[macro_use]
 pub mod console;
 mod common;
 mod syscall;
 pub mod test_utils;
 
+const USER_HEAP_SIZE: usize = 4096 * 4;
+
+static mut HEAP_SPACE: [u8; USER_HEAP_SIZE] = [0; USER_HEAP_SIZE];
+
+#[global_allocator]
+static HEAP: LockedHeap<32> = LockedHeap::empty();
+
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.entry")]
 pub extern "C" fn _start() -> ! {
     common::clear_bss();
+    unsafe {
+        HEAP.lock()
+            .init(addr_of_mut!(HEAP_SPACE) as usize, USER_HEAP_SIZE);
+    }
     exit(main());
     unreachable!()
 }

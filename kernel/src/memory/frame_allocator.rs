@@ -14,6 +14,16 @@ pub struct FrameTracker {
     pub ppn: PhysPageNum,
 }
 
+impl FrameTracker {
+    pub fn new(ppn: PhysPageNum) -> Self {
+        let bytes_array = ppn.get_bytes_array();
+        for i in bytes_array {
+            *i = 0;
+        }
+        Self { ppn }
+    }
+}
+
 impl Drop for FrameTracker {
     fn drop(&mut self) {
         FRAME_ALLOCATOR.borrow_mut().dealloc(self.ppn);
@@ -67,7 +77,7 @@ impl StackFrameAllocator {
 
 impl FrameAllocator for StackFrameAllocator {
     fn frame_alloc(&mut self) -> Option<FrameTracker> {
-        self.alloc().map(|ppn| FrameTracker { ppn })
+        self.alloc().map(FrameTracker::new)
     }
 }
 

@@ -35,6 +35,18 @@ impl MapArea {
         self.start_vpn..self.end_vpn
     }
 
+    pub fn start_vpn(&self) -> VirtPageNum {
+        self.start_vpn
+    }
+
+    pub fn remove(&mut self, vpn: VirtPageNum) -> Option<FrameTracker> {
+        if self.map_type == MapType::Framed {
+            self.data_frames.remove(&vpn)
+        } else {
+            panic!("Cannot remove frame from an identical map area");
+        }
+    }
+
     pub fn insert(&mut self, vpn: VirtPageNum, frame: FrameTracker) {
         if self.map_type == MapType::Framed {
             self.data_frames.insert(vpn, frame);

@@ -55,7 +55,6 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
     memory::init();
     trap::init();
     timer::init();
-    proc::init();
     #[cfg(not(test))]
     {
         info!(r" _____         _     _  __                    _ ");
@@ -68,6 +67,7 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
         info!(r"| dtb physical address  | {dtb_pa:#20x} |");
         info!(r"------------------------------------------------");
         info!("");
+        proc::init();
         proc::run();
     }
     #[cfg(test)]

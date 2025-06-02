@@ -11,7 +11,7 @@ extern crate user_lib;
 #[unsafe(no_mangle)]
 fn main() -> i32 {
     if fork() == 0 {
-        exec("hello_world\0");
+        exec("shell\0");
     } else {
         loop {
             let mut exit_code: i32 = 0;

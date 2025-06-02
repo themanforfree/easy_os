@@ -247,6 +247,23 @@ impl MemorySpace {
         self.areas.clear();
     }
 
+    pub fn remove_area_with_start_vpn(&mut self, start_vpn: VirtPageNum) {
+        if let Some((idx, area)) = self
+            .areas
+            .iter_mut()
+            .enumerate()
+            .find(|(_, area)| area.start_vpn() == start_vpn)
+        {
+            for vpn in area.range() {
+                if area.map_type == MapType::Framed {
+                    area.remove(vpn);
+                }
+                self.page_table.unmap(vpn);
+            }
+            self.areas.remove(idx);
+        }
+    }
+
     fn map_trampoline(&mut self) {
         let vpn = VirtAddr::new(TRAMPOLINE).page_number();
         let ppn = PhysAddr::new(strampoline as usize).page_number();
