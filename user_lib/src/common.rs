@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use crate::exit;
 
 #[panic_handler]
@@ -18,11 +20,18 @@ fn panic_handler(panic_info: &core::panic::PanicInfo) -> ! {
 }
 
 pub fn clear_bss() {
-    unsafe extern "C" {
-        static sbss: u8;
-        static ebss: u8;
+    unsafe {
+        asm!(
+            "
+            la a0, sbss
+            la a1, ebss
+        1:
+            beq a0, a1, 2f
+            sw zero, 0(a0)
+            addi a0, a0, 4
+            j 1b
+        2:
+        "
+        )
     }
-    let bss_start = unsafe { &sbss as *const u8 as usize };
-    let bss_end = unsafe { &ebss as *const u8 as usize };
-    (bss_start..bss_end).for_each(|a| unsafe { (a as *mut u8).write_volatile(0) });
 }
