@@ -5,6 +5,7 @@
 
 use core::ptr::addr_of_mut;
 
+use bitflags::bitflags;
 use buddy_system_allocator::LockedHeap;
 
 #[macro_use]
@@ -84,4 +85,22 @@ pub fn waitpid(pid: usize, exit_code: &mut i32) -> isize {
             exit_pid => return exit_pid,
         }
     }
+}
+
+bitflags! {
+    pub struct OpenFlags: u32 {
+        const RDONLY = 0;
+        const WRONLY = 1 << 0;
+        const RDWR = 1 << 1;
+        const CREATE = 1 << 9;
+        const TRUNC = 1 << 10;
+    }
+}
+
+pub fn open(path: &str, flags: OpenFlags) -> isize {
+    syscall::sys_open(path, flags.bits())
+}
+
+pub fn close(fd: usize) -> isize {
+    syscall::sys_close(fd)
 }

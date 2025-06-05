@@ -21,6 +21,14 @@ macro_rules! syscall {
     }};
 }
 
+pub fn sys_open(path: &str, flags: u32) -> isize {
+    syscall!(SYSCALL_OPEN, path.as_ptr() as usize, flags)
+}
+
+pub fn sys_close(fd: usize) -> isize {
+    syscall!(SYSCALL_CLOSE, fd)
+}
+
 pub fn sys_read(fd: usize, buffer: &mut [u8]) -> isize {
     syscall!(SYSCALL_READ, fd, buffer.as_mut_ptr() as usize, buffer.len())
 }
