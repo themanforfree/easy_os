@@ -1,10 +1,10 @@
 //! App management syscalls
 use alloc::sync::Arc;
-use log::{trace, warn};
+use log::trace;
 
-use crate::proc::{
-    PROC_LOADER, PROC_MANAGER, current_proc, exit_current_and_run_next,
-    suspend_current_and_run_next,
+use crate::{
+    fs::{OpenFlags, open_file},
+    proc::{PROC_MANAGER, current_proc, exit_current_and_run_next, suspend_current_and_run_next},
 };
 
 /// task exits and submit an exit code
@@ -35,17 +35,13 @@ pub fn sys_fork() -> isize {
 
 pub fn sys_exec(path: *const u8) -> isize {
     let proc = current_proc();
-    let name = proc
-        .borrow_inner_mut()
-        .memory_space
-        .read_c_str(path)
-        .unwrap();
+    let pt = proc.page_table();
+    let name = pt.read_c_str(path).unwrap();
     trace!("sys_exec: path = {name}");
-    if let Some(elf_data) = PROC_LOADER.get_app_data_by_name(&name) {
-        proc.exec(elf_data);
+    if let Some(app_inode) = open_file(name.as_str(), OpenFlags::RDONLY) {
+        proc.exec(app_inode.read_all());
         0
     } else {
-        warn!("sys_exec: app {name} not found");
         -1
     }
 }

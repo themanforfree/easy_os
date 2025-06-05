@@ -3,46 +3,77 @@
 use log::trace;
 
 use crate::{
-    memory::{PageTable, VirtAddr},
-    proc::current_token,
-    sbi::read_chars_blocking,
+    fs::{OpenFlags, open_file},
+    memory::VirtAddr,
+    proc::current_proc,
 };
-
-const FD_STDIN: usize = 0;
-const FD_STDOUT: usize = 1;
 
 /// write buf of length `len`  to a file with `fd`
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("sys_write: fd = {fd}, buf = {buf:p}, len = {len}");
-    match fd {
-        FD_STDOUT => {
-            let token = current_token();
-            let pt = PageTable::from_token(token);
-            let slice = pt.copy_in(VirtAddr::new(buf as usize), len);
-            let str = core::str::from_utf8(&slice).unwrap();
-            print!("{}", str);
-            len as isize
+    let proc = current_proc();
+    let pt = proc.page_table();
+    let inner = proc.borrow_inner_mut();
+
+    if fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if let Some(file) = &inner.fd_table[fd] {
+        let file = file.clone();
+        if !file.writable() {
+            return -1;
         }
-        _ => {
-            panic!("Unsupported fd in sys_write!");
-        }
+        drop(inner);
+        file.write(pt.translate_bytes_buffer(VirtAddr::new(buf as usize), len)) as isize
+    } else {
+        -1
     }
 }
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("sys_read: fd = {fd}, buf = {buf:p}, len = {len}");
-    match fd {
-        FD_STDIN => {
-            let kernel_buffer = read_chars_blocking(len);
+    let proc = current_proc();
+    let pt = proc.page_table();
+    let inner = proc.borrow_inner_mut();
 
-            let token = current_token();
-            let pt = PageTable::from_token(token);
-            pt.copy_out(VirtAddr::new(buf as usize), &kernel_buffer);
-
-            0
-        }
-        _ => {
-            panic!("Unsupported fd in sys_read!");
-        }
+    if fd >= inner.fd_table.len() {
+        return -1;
     }
+    if let Some(file) = &inner.fd_table[fd] {
+        let file = file.clone();
+        if !file.readable() {
+            return -1;
+        }
+        drop(inner);
+        file.read(pt.translate_bytes_buffer(VirtAddr::new(buf as usize), len)) as isize
+    } else {
+        -1
+    }
+}
+
+pub fn sys_open(path: *const u8, flags: u32) -> isize {
+    let proc = current_proc();
+    let pt = proc.page_table();
+    let path = pt.read_c_str(path).unwrap();
+    if let Some(inode) = open_file(path.as_str(), OpenFlags::from_bits(flags).unwrap()) {
+        let mut inner = proc.borrow_inner_mut();
+        let fd = inner.alloc_fd();
+        inner.fd_table[fd] = Some(inode);
+        fd as isize
+    } else {
+        -1
+    }
+}
+
+pub fn sys_close(fd: usize) -> isize {
+    let proc = current_proc();
+    let mut inner = proc.borrow_inner_mut();
+    if fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if inner.fd_table[fd].is_none() {
+        return -1;
+    }
+    inner.fd_table[fd].take();
+    0
 }

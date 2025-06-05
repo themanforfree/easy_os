@@ -7,7 +7,7 @@
 //! └─────────┴─────────┴─────────┴─────────┴─────────────┘
 //!  63     39 38     30 29     21 20     12 11          0
 //! ```
-use core::{fmt::Debug, iter::Step};
+use core::fmt::Debug;
 
 use crate::config::PAGE_SIZE;
 
@@ -93,22 +93,6 @@ impl Debug for VirtPageNum {
 impl From<VirtPageNum> for VirtAddr {
     fn from(vpn: VirtPageNum) -> Self {
         Self(vpn.0 << 12)
-    }
-}
-
-impl Step for VirtPageNum {
-    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
-        usize::steps_between(&start.0, &end.0)
-    }
-
-    fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        let end = usize::forward_checked(start.0, count)?;
-        Some(Self(end))
-    }
-
-    fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        let end = usize::backward_checked(start.0, count)?;
-        Some(Self(end))
     }
 }
 

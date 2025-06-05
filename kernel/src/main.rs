@@ -11,13 +11,15 @@ extern crate alloc;
 
 use crate::common::clear_bss;
 use crate::sbi::shutdown;
-use core::arch::{global_asm, naked_asm};
+use core::arch::naked_asm;
 use log::info;
 
 #[macro_use]
 mod console;
 mod common;
 mod config;
+mod drivers;
+mod fs;
 mod logger;
 mod memory;
 mod proc;
@@ -28,8 +30,6 @@ mod syscall;
 mod test_utils;
 mod timer;
 mod trap;
-
-global_asm!(include_str!("link_app.S"));
 
 #[unsafe(naked)]
 #[unsafe(no_mangle)]

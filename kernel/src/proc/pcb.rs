@@ -2,12 +2,14 @@ use core::cell::RefMut;
 
 use alloc::{
     sync::{Arc, Weak},
+    vec,
     vec::Vec,
 };
 
 use crate::{
     config::TRAP_FRAME,
-    memory::{KERNEL_SPACE, MemorySpace, PhysPageNum, VirtAddr},
+    fs::{File, Stdin, Stdout},
+    memory::{KERNEL_SPACE, MemorySpace, PageTable, PhysPageNum, VirtAddr},
     proc::INIT_PROC,
     sync::UPSafeCell,
     trap::{TrapFrame, trap_handler},
@@ -45,10 +47,11 @@ pub struct ProcControlBlockInner {
 
     pub parent: Option<Weak<ProcControlBlock>>, // TODO: remove Option?
     pub children: Vec<Arc<ProcControlBlock>>,
+    pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
 }
 
 impl ProcControlBlock {
-    pub fn new(elf_data: &[u8]) -> Self {
+    pub fn new(elf_data: impl AsRef<[u8]>) -> Self {
         let (memory_space, user_sp, entry_point) = MemorySpace::from_elf(elf_data);
         let trap_frame_ppn = memory_space
             .translate(VirtAddr::new(TRAP_FRAME).page_number())
@@ -71,6 +74,11 @@ impl ProcControlBlock {
                     exit_code: 0,
                     parent: None,
                     children: Vec::new(),
+                    fd_table: vec![
+                        Some(Arc::new(Stdin)),
+                        Some(Arc::new(Stdout)),
+                        Some(Arc::new(Stdout)),
+                    ],
                 })
             },
         };
@@ -85,7 +93,7 @@ impl ProcControlBlock {
         pcb
     }
 
-    pub fn exec(&self, elf_data: &[u8]) {
+    pub fn exec(&self, elf_data: impl AsRef<[u8]>) {
         let (memory_space, user_sp, entry_point) = MemorySpace::from_elf(elf_data);
         let trap_frame_ppn = memory_space
             .translate(VirtAddr::new(TRAP_FRAME).page_number())
@@ -146,6 +154,7 @@ impl ProcControlBlock {
                     exit_code: 0,
                     parent: Some(Arc::downgrade(self)),
                     children: Vec::new(),
+                    fd_table: parent_inner.fd_table.clone(),
                 })
             },
         });
@@ -155,6 +164,11 @@ impl ProcControlBlock {
         trap_frame.kernel_sp = kernel_stack_top;
 
         child_pcb
+    }
+
+    // get the readonly page table of this process
+    pub fn page_table(&self) -> PageTable {
+        PageTable::from_token(self.inner.borrow_mut().get_token())
     }
 }
 
@@ -169,5 +183,14 @@ impl ProcControlBlockInner {
 
     pub fn is_zombie(&self) -> bool {
         self.status == ProcStatus::Zombie
+    }
+
+    pub fn alloc_fd(&mut self) -> usize {
+        if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()) {
+            fd
+        } else {
+            self.fd_table.push(None);
+            self.fd_table.len() - 1
+        }
     }
 }

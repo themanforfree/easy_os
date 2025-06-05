@@ -13,9 +13,10 @@ mod vfs;
 
 pub use dev::BlockDevice;
 pub use efs::EasyFileSystem;
+pub use vfs::Inode;
 
 /// Size of a block in bytes
-const BLOCK_SIZE: usize = 512;
+pub const BLOCK_SIZE: usize = 512;
 /// Use a block cache of 16 blocks
 const BLOCK_CACHE_SIZE: usize = 16;
 

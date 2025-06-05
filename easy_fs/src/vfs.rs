@@ -3,7 +3,7 @@ use spin::{Mutex, MutexGuard};
 
 use crate::{
     BlockDevice,
-    cache::get_block,
+    cache::{block_cache_sync_all, get_block},
     efs::EasyFileSystem,
     layout::{DirEntry, DiskInode, DiskInodeType},
 };
@@ -187,10 +187,12 @@ impl Inode {
 
     pub fn write_at(&self, offset: usize, buf: &[u8]) -> usize {
         let mut fs = self.fs.lock();
-        self.modify_disk_inode(|disk_inode| {
+        let size = self.modify_disk_inode(|disk_inode| {
             self.increase_size((offset + buf.len()) as u32, disk_inode, &mut fs);
             disk_inode.write_at(offset, buf, &self.block_device)
-        })
+        });
+        block_cache_sync_all();
+        size
     }
 }
 

@@ -1,9 +1,12 @@
-use alloc::{vec, vec::Vec};
+use alloc::{string::String, vec, vec::Vec};
 use bitflags::bitflags;
 
 use crate::{
     config::PAGE_SIZE,
-    memory::frame_allocator::{FRAME_ALLOCATOR, FrameAllocator},
+    memory::{
+        PhysAddr,
+        frame_allocator::{FRAME_ALLOCATOR, FrameAllocator},
+    },
 };
 
 use super::{PhysPageNum, VirtAddr, VirtPageNum, frame_allocator::FrameTracker};
@@ -137,6 +140,25 @@ impl PageTable {
         self.find_pte(vpn).copied()
     }
 
+    pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
+        self.translate(va.page_number())
+            .map(|pte| PhysAddr::from(pte.ppn()) + va.page_offset())
+    }
+
+    pub fn read_c_str(&self, ptr: *const u8) -> Option<String> {
+        let mut s = String::new();
+        let mut va = VirtAddr::new(ptr as usize);
+        loop {
+            let ch = *self.translate_va(va)?.get_mut::<u8>(); // TODO: optimize this
+            if ch == 0 {
+                break;
+            }
+            s.push(ch as char); // TODO: optimize this to support UTF-8
+            va += 1;
+        }
+        Some(s)
+    }
+
     pub fn token(&self) -> usize {
         8usize << 60 | usize::from(self.root_ppn)
     }
@@ -168,21 +190,41 @@ impl PageTable {
         }
     }
 
-    pub fn copy_in(&self, ptr: VirtAddr, len: usize) -> Vec<u8> {
-        let mut data = Vec::with_capacity(len);
+    pub fn translate_bytes_buffer(&self, ptr: VirtAddr, len: usize) -> UserBuffer {
+        let mut buffer = Vec::with_capacity(len);
+
         let mut start_va = ptr;
         let max_end_va = start_va + len;
-
         while start_va < max_end_va {
             let vpn = start_va.page_number();
             let page_offset = start_va.page_offset();
             let src = self.translate(vpn).unwrap().ppn().get_bytes_array();
 
             let bytes_to_copy = usize::min(PAGE_SIZE - page_offset, max_end_va - start_va);
-            data.extend_from_slice(&src[page_offset..page_offset + bytes_to_copy]);
+            buffer.push(&mut src[page_offset..page_offset + bytes_to_copy]);
 
             start_va += bytes_to_copy;
         }
-        data
+
+        UserBuffer { buffer }
+    }
+}
+
+// TODO: use a more flexible abstraction for user buffers
+pub struct UserBuffer {
+    pub buffer: Vec<&'static mut [u8]>,
+}
+
+impl UserBuffer {
+    pub fn len(&self) -> usize {
+        self.buffer.iter().map(|b| b.len()).sum()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut &'static mut [u8]> {
+        self.buffer.iter_mut()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &&'static mut [u8]> {
+        self.buffer.iter()
     }
 }

@@ -1,12 +1,12 @@
 use core::arch::asm;
 
-use alloc::{string::String, sync::Arc, vec::Vec};
+use alloc::{sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
 use log::trace;
 use riscv::register::satp;
 
 use crate::{
-    config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_FRAME, USER_STACK_SIZE},
+    config::{MEMORY_END, MMIO, PAGE_SIZE, TRAMPOLINE, TRAP_FRAME, USER_STACK_SIZE},
     sync::UPSafeCell,
 };
 
@@ -103,18 +103,15 @@ impl MemorySpace {
             MapType::Identical,
             MapPermission::R | MapPermission::W,
         );
-        // println!("mapping memory-mapped registers");
-        // for pair in MMIO {
-        //     memory_set.push(
-        //         MapArea::new(
-        //             (*pair).0.into(),
-        //             ((*pair).0 + (*pair).1).into(),
-        //             MapType::Identical,
-        //             MapPermission::R | MapPermission::W,
-        //         ),
-        //         None,
-        //     );
-        // }
+        trace!("mapping memory-mapped registers");
+        for pair in MMIO {
+            space.map_range(
+                VirtAddr::new(pair.0).page_number(),
+                VirtAddr::new(pair.0 + pair.1).page_number(),
+                MapType::Identical,
+                MapPermission::R | MapPermission::W,
+            );
+        }
         space
     }
 
@@ -132,7 +129,8 @@ impl MemorySpace {
         );
     }
 
-    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
+    pub fn from_elf(elf_data: impl AsRef<[u8]>) -> (Self, usize, usize) {
+        let elf_data = elf_data.as_ref();
         let mut space = Self::new_bare();
         space.map_trampoline();
 
@@ -207,28 +205,13 @@ impl MemorySpace {
     }
 
     pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
-        self.translate(va.page_number())
-            .map(|pte| PhysAddr::from(pte.ppn()) + va.page_offset())
+        self.page_table.translate_va(va)
     }
 
     pub fn translated_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
         self.translate_va(VirtAddr::new(ptr as usize))
             .map(|pa| pa.get_mut())
             .expect("Failed to translate virtual address")
-    }
-
-    pub fn read_c_str(&self, ptr: *const u8) -> Option<String> {
-        let mut s = String::new();
-        let mut va = VirtAddr::new(ptr as usize);
-        loop {
-            let ch = *self.translate_va(va)?.get_mut::<u8>(); // TODO: optimize this
-            if ch == 0 {
-                break;
-            }
-            s.push(ch as char); // TODO: optimize this to support UTF-8
-            va += 1;
-        }
-        Some(s)
     }
 
     pub fn token(&self) -> usize {

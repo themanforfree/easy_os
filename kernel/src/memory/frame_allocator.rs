@@ -32,6 +32,7 @@ impl Drop for FrameTracker {
 
 pub trait FrameAllocator {
     fn frame_alloc(&mut self) -> Option<FrameTracker>;
+    fn frame_dealloc(&mut self, ppn: PhysPageNum);
 }
 
 pub struct StackFrameAllocator {
@@ -78,6 +79,10 @@ impl StackFrameAllocator {
 impl FrameAllocator for StackFrameAllocator {
     fn frame_alloc(&mut self) -> Option<FrameTracker> {
         self.alloc().map(FrameTracker::new)
+    }
+
+    fn frame_dealloc(&mut self, ppn: PhysPageNum) {
+        self.dealloc(ppn);
     }
 }
 

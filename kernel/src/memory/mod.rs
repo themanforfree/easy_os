@@ -6,9 +6,10 @@ mod memory_space;
 mod page_table;
 
 pub use self::address::*;
+pub use self::frame_allocator::{FRAME_ALLOCATOR, FrameAllocator, FrameTracker};
 pub use self::map_area::MapPermission;
 pub use self::memory_space::{KERNEL_SPACE, MemorySpace};
-pub use self::page_table::PageTable;
+pub use self::page_table::{PageTable, UserBuffer};
 
 pub fn init() {
     heap_allocator::init_heap();

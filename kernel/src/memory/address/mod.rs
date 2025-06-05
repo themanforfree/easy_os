@@ -65,6 +65,26 @@ macro_rules! from_impl {
     )*)
 }
 
+macro_rules! step_impl {
+    ($($t:ty)*) => ($(
+        impl core::iter::Step for $t {
+            fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+                usize::steps_between(&start.0, &end.0)
+            }
+
+            fn forward_checked(start: Self, count: usize) -> Option<Self> {
+                let end = usize::forward_checked(start.0, count)?;
+                Some(Self(end))
+            }
+
+            fn backward_checked(start: Self, count: usize) -> Option<Self> {
+                let end = usize::backward_checked(start.0, count)?;
+                Some(Self(end))
+            }
+        }
+    )*)
+}
+
 macro_rules! all_impl {
     ($($t:ty)*) => {
         add_impl!($($t)*);
@@ -72,6 +92,7 @@ macro_rules! all_impl {
         add_assign_impl!($($t)*);
         sub_assign_impl!($($t)*);
         from_impl!($($t)*);
+        step_impl!($($t)*);
     };
 }
 
