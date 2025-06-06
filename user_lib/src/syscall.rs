@@ -56,3 +56,7 @@ pub fn sys_yield() -> isize {
 pub fn sys_exec(path: &str) -> isize {
     syscall!(SYSCALL_EXEC, path.as_ptr() as usize)
 }
+
+pub fn sys_pipe(pipe: &mut [usize]) -> isize {
+    syscall!(SYSCALL_PIPE, pipe.as_mut_ptr() as usize)
+}

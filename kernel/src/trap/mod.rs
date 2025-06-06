@@ -41,9 +41,13 @@ pub fn trap_handler() -> ! {
             let result = syscall(
                 trap_frame.x[17],
                 [trap_frame.x[10], trap_frame.x[11], trap_frame.x[12]],
-            ) as usize;
-            let trap_frame = current_trap_frame_mut();
-            trap_frame.x[10] = result; // syscall return value
+            );
+            if let Some(result) = result {
+                let trap_frame = current_trap_frame_mut();
+                trap_frame.x[10] = result as usize;
+            } else {
+                exit_current_and_run_next(-1);
+            }
         }
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)

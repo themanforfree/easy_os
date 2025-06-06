@@ -104,3 +104,7 @@ pub fn open(path: &str, flags: OpenFlags) -> isize {
 pub fn close(fd: usize) -> isize {
     syscall::sys_close(fd)
 }
+
+pub fn pipe(pipe: &mut [usize]) -> isize {
+    syscall::sys_pipe(pipe)
+}
