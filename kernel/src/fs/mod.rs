@@ -1,9 +1,11 @@
 use crate::memory::UserBuffer;
 
 mod inode;
+mod pipe;
 mod stdio;
 
 pub use self::inode::{OpenFlags, list_apps, open_file};
+pub use self::pipe::Pipe;
 pub use self::stdio::{Stdin, Stdout};
 
 pub trait File: Send + Sync {

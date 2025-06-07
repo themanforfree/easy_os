@@ -3,7 +3,7 @@
 use log::trace;
 
 use crate::{
-    fs::{OpenFlags, open_file},
+    fs::{OpenFlags, Pipe, open_file},
     memory::VirtAddr,
     proc::current_proc,
 };
@@ -75,5 +75,21 @@ pub fn sys_close(fd: usize) -> isize {
         return -1;
     }
     inner.fd_table[fd].take();
+    0
+}
+
+pub fn sys_pipe(pipe: *mut usize) -> isize {
+    let proc = current_proc();
+    let pt = proc.page_table();
+    let mut inner = proc.borrow_inner_mut();
+    let (pipe_read, pipe_write) = Pipe::new();
+    let read_fd = inner.alloc_fd();
+    inner.fd_table[read_fd] = Some(pipe_read);
+    let write_fd = inner.alloc_fd();
+    inner.fd_table[write_fd] = Some(pipe_write);
+    unsafe {
+        *pt.translate_mut_ptr(pipe) = read_fd;
+        *pt.translate_mut_ptr(pipe.add(1)) = write_fd;
+    }
     0
 }
