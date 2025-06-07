@@ -10,6 +10,7 @@
 extern crate alloc;
 
 use crate::common::clear_bss;
+#[cfg(test)]
 use crate::sbi::shutdown;
 use core::arch::naked_asm;
 use log::info;
@@ -76,7 +77,6 @@ pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
         info!("boot_hart_id: {}", hart_id);
         info!("dtb_pa: {:#x}", dtb_pa);
         test_main();
+        shutdown(false);
     }
-    #[allow(unreachable_code)] // TODO: remove this
-    shutdown(false);
 }

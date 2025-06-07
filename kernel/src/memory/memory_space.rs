@@ -204,14 +204,12 @@ impl MemorySpace {
         self.page_table.translate(vpn)
     }
 
-    pub fn translate_va(&self, va: VirtAddr) -> Option<PhysAddr> {
-        self.page_table.translate_va(va)
+    pub fn translate_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
+        self.page_table.translate_mut_ptr(ptr)
     }
 
-    pub fn translated_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
-        self.translate_va(VirtAddr::new(ptr as usize))
-            .map(|pa| pa.get_mut())
-            .expect("Failed to translate virtual address")
+    pub fn write_c_str(&self, ptr: *mut u8, s: &str) {
+        self.page_table.write_c_str(ptr, s);
     }
 
     pub fn token(&self) -> usize {

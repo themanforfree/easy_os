@@ -55,7 +55,7 @@ pub fn current_trap_frame_mut() -> &'static mut crate::trap::TrapFrame {
     current_proc().borrow_inner_mut().get_trap_frame_mut()
 }
 
-pub fn run() {
+pub fn run() -> ! {
     loop {
         let mut processor = CPU.borrow_mut();
         let proc_opt = PROC_MANAGER.borrow_mut().pop();

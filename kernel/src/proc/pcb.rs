@@ -1,6 +1,7 @@
 use core::cell::RefMut;
 
 use alloc::{
+    string::String,
     sync::{Arc, Weak},
     vec,
     vec::Vec,
@@ -93,25 +94,48 @@ impl ProcControlBlock {
         pcb
     }
 
-    pub fn exec(&self, elf_data: impl AsRef<[u8]>) {
-        let (memory_space, user_sp, entry_point) = MemorySpace::from_elf(elf_data);
+    pub fn exec(&self, elf_data: impl AsRef<[u8]>, args: Vec<String>) -> isize {
+        let (memory_space, mut user_sp, entry_point) = MemorySpace::from_elf(elf_data);
         let trap_frame_ppn = memory_space
             .translate(VirtAddr::new(TRAP_FRAME).page_number())
             .unwrap()
             .ppn();
 
+        // Push arguments onto the user stack [arg0_ptr, arg1_ptr, ..., argN_ptr, 0]
+        user_sp -= (args.len() + 1) * core::mem::size_of::<usize>();
+        let argv_base = user_sp;
+        let mut argv = (0..=args.len())
+            .map(|arg| {
+                memory_space.translate_mut_ptr(
+                    (argv_base + arg * core::mem::size_of::<usize>()) as *mut usize,
+                )
+            })
+            .collect::<Vec<_>>();
+        *argv[args.len()] = 0;
+        for i in 0..args.len() {
+            // Push argument string onto the user stack
+            user_sp -= args[i].len() + 1;
+            *argv[i] = user_sp;
+            memory_space.write_c_str(user_sp as *mut u8, &args[i]);
+        }
+        // align user stack pointer to 8 bytes
+        user_sp -= user_sp % core::mem::size_of::<usize>();
+
         let mut inner = self.inner.borrow_mut();
         inner.memory_space = memory_space;
         inner.trap_frame_ppn = trap_frame_ppn;
         inner.base_size = user_sp;
-        let trap_frame = inner.get_trap_frame_mut();
-        *trap_frame = TrapFrame::new(
+        let mut tf = TrapFrame::new(
             entry_point,
             user_sp,
             KERNEL_SPACE.borrow_mut().token(),
             self.kernel_stack.get_top(),
             trap_handler as usize, // physical address of trap handler
         );
+        // only set a1, a0 will be set by syscall return value
+        tf.x[11] = argv_base; // a1 = argv
+        *inner.get_trap_frame_mut() = tf;
+        args.len() as isize
     }
 
     pub fn borrow_inner_mut(&self) -> RefMut<'_, ProcControlBlockInner> {

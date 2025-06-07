@@ -3,8 +3,11 @@
 #![test_runner(crate::test_utils::test_runner)]
 #![feature(linkage)]
 
+extern crate alloc;
+
 use core::ptr::addr_of_mut;
 
+use alloc::vec::Vec;
 use bitflags::bitflags;
 use buddy_system_allocator::LockedHeap;
 
@@ -23,19 +26,28 @@ static HEAP: LockedHeap<32> = LockedHeap::empty();
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.entry")]
-pub extern "C" fn _start() -> ! {
+pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
     common::clear_bss();
     unsafe {
         HEAP.lock()
             .init(addr_of_mut!(HEAP_SPACE) as usize, USER_HEAP_SIZE);
     }
-    exit(main());
+    let mut args = Vec::new();
+    let argv_ptr = argv as *const *const u8;
+    for i in 0..argc {
+        let arg_ptr = unsafe { *argv_ptr.add(i) };
+        if !arg_ptr.is_null() {
+            let arg = unsafe { core::ffi::CStr::from_ptr(arg_ptr) };
+            args.push(arg.to_str().unwrap_or(""));
+        }
+    }
+    exit(main(argc, args.as_slice()));
     unreachable!()
 }
 
 #[linkage = "weak"]
 #[unsafe(no_mangle)]
-fn main() -> i32 {
+fn main(_argc: usize, _argv: &[&str]) -> i32 {
     unreachable!("main() should be defined in user program");
 }
 
@@ -55,8 +67,8 @@ pub fn fork() -> isize {
     syscall::sys_fork()
 }
 
-pub fn exec(path: &str) -> isize {
-    syscall::sys_exec(path)
+pub fn exec(path: &str, args: &[*const u8]) -> isize {
+    syscall::sys_exec(path, args)
 }
 
 pub fn yield_() -> isize {

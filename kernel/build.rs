@@ -42,7 +42,7 @@ impl BlockDevice for BlockFile {
     }
 }
 
-const FS_SIZE: usize = 16 * 1024 * 2 * BLOCK_SIZE; // 16 MiB
+const FS_SIZE: usize = 64 * 1024 * 2 * BLOCK_SIZE; // 64 MiB
 
 fn easy_fs_pack() -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

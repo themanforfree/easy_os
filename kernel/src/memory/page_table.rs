@@ -145,15 +145,15 @@ impl PageTable {
             .map(|pte| PhysAddr::from(pte.ppn()) + va.page_offset())
     }
 
-    // pub fn translate_ptr<T>(&self, ptr: *const T) -> *const T {
-    //     self.translate_va(VirtAddr::new(ptr as usize))
-    //         .map(|pa| pa.as_ptr())
-    //         .unwrap()
-    // }
-
-    pub fn translate_mut_ptr<T>(&self, ptr: *mut T) -> *mut T {
+    pub fn translate_ptr<T>(&self, ptr: *const T) -> &'static T {
         self.translate_va(VirtAddr::new(ptr as usize))
-            .map(|pa| pa.as_mut_ptr())
+            .map(|pa| pa.get_ref())
+            .unwrap()
+    }
+
+    pub fn translate_mut_ptr<T>(&self, ptr: *mut T) -> &'static mut T {
+        self.translate_va(VirtAddr::new(ptr as usize))
+            .map(|pa| pa.get_mut())
             .unwrap()
     }
 
@@ -169,6 +169,19 @@ impl PageTable {
             va += 1;
         }
         Some(s)
+    }
+
+    pub fn write_c_str(&self, ptr: *mut u8, s: &str) {
+        let mut va = VirtAddr::new(ptr as usize);
+        for ch in s.bytes() {
+            // TODO: optimize this
+            let dst = self.translate_va(va).unwrap().get_mut::<u8>();
+            *dst = ch;
+            va += 1;
+        }
+        // Null-terminate the string
+        let dst = self.translate_va(va).unwrap().get_mut::<u8>();
+        *dst = 0;
     }
 
     pub fn token(&self) -> usize {

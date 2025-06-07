@@ -3,7 +3,7 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(user_lib::test_utils::test_runner)]
 
-use alloc::string::String;
+use alloc::{format, string::String, vec::Vec};
 use user_lib::{console::getchar, exec, fork, waitpid};
 
 #[macro_use]
@@ -26,11 +26,20 @@ pub fn main() -> i32 {
             LF | CR => {
                 println!("");
                 if !line.is_empty() {
-                    line.push('\0');
+                    let args = line
+                        .split(' ')
+                        .map(|arg| format!("{arg}\0"))
+                        .collect::<Vec<String>>();
+                    let mut args_addr = args
+                        .iter()
+                        .map(|arg| arg.as_ptr())
+                        .collect::<Vec<*const u8>>();
+                    args_addr.push(core::ptr::null());
+
                     let pid = fork();
                     if pid == 0 {
                         // child process
-                        if exec(line.as_str()) == -1 {
+                        if exec(args[0].as_str(), &args_addr) == -1 {
                             println!("Error when executing!");
                             return -4;
                         }

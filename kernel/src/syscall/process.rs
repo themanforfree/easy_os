@@ -1,5 +1,5 @@
 //! App management syscalls
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 use log::trace;
 
 use crate::{
@@ -33,14 +33,22 @@ pub fn sys_fork() -> isize {
     child_pid as isize
 }
 
-pub fn sys_exec(path: *const u8) -> isize {
+pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
     let proc = current_proc();
     let pt = proc.page_table();
     let name = pt.read_c_str(path).unwrap();
-    trace!("sys_exec: path = {name}");
+    let mut args_vec: Vec<String> = Vec::new();
+    loop {
+        let arg_ptr = *pt.translate_ptr(args) as *const u8;
+        if arg_ptr.is_null() {
+            break;
+        }
+        args_vec.push(pt.read_c_str(arg_ptr).unwrap());
+        unsafe { args = args.add(1) };
+    }
+    trace!("sys_exec: path = {name}, args = {args_vec:?}");
     if let Some(app_inode) = open_file(name.as_str(), OpenFlags::RDONLY) {
-        proc.exec(app_inode.read_all());
-        0
+        proc.exec(app_inode.read_all(), args_vec)
     } else {
         -1
     }
@@ -69,6 +77,6 @@ pub fn sys_waitpid(pid: isize, status: *mut i32) -> isize {
     assert_eq!(Arc::strong_count(&child), 1);
     let proc_pid = child.pid();
     let exit_code = child.borrow_inner_mut().exit_code;
-    *proc_inner.memory_space.translated_mut_ptr(status) = exit_code;
+    *proc_inner.memory_space.translate_mut_ptr(status) = exit_code;
     proc_pid as isize
 }
