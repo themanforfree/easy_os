@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 bitflags = "2.9.1"
 buddy_system_allocator = "0.11.0"
+common = { path = "../common" }
 riscv = { git = "https://github.com/rcore-os/riscv", features = [
     "inline-asm",
 ] } # TODO: use other riscv in crates.io
-syscall_id = { path = "../syscall_id" }

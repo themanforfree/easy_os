@@ -60,6 +60,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+
+[[package]]
 name = "easy_fs"
 version = "0.1.0"
 dependencies = [
@@ -86,12 +90,12 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.9.1",
  "buddy_system_allocator",
+ "common",
  "easy_fs",
  "lazy_static",
  "log",
  "riscv",
  "sbi-rt",
- "syscall_id",
  "user_lib",
  "virtio-drivers",
  "xmas-elf",
@@ -322,10 +326,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "syscall_id"
-version = "0.1.0"
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -337,8 +337,8 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.9.1",
  "buddy_system_allocator",
+ "common",
  "riscv",
- "syscall_id",
 ]
 
 [[package]]

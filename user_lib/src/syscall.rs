@@ -1,4 +1,4 @@
-use syscall_id::*;
+use common::syscall_id::*;
 
 macro_rules! syscall {
     ($id:expr $(, $arg:expr)* ) => {{

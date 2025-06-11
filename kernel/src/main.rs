@@ -9,7 +9,6 @@
 
 extern crate alloc;
 
-use crate::common::clear_bss;
 #[cfg(test)]
 use crate::sbi::shutdown;
 use core::arch::naked_asm;
@@ -51,7 +50,7 @@ unsafe extern "C" fn _start() -> ! {
 }
 
 pub fn kernel_main(hart_id: usize, dtb_pa: usize) -> ! {
-    clear_bss();
+    crate::common::clear_bss();
     logger::init();
     memory::init();
     trap::init();

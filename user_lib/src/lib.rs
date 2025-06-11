@@ -27,7 +27,7 @@ static HEAP: LockedHeap<32> = LockedHeap::empty();
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.entry")]
 pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
-    common::clear_bss();
+    crate::common::clear_bss();
     unsafe {
         HEAP.lock()
             .init(addr_of_mut!(HEAP_SPACE) as usize, USER_HEAP_SIZE);

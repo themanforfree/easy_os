@@ -8,6 +8,7 @@ default-run = "kernel"
 [dependencies]
 bitflags = "2.9.0"
 buddy_system_allocator = "0.11.0"
+common = { path = "../common" }
 easy_fs = { path = "../easy_fs" }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 log = "0.4.27"
@@ -15,7 +16,6 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = [
     "inline-asm",
 ] } # TODO: use other riscv in crates.io
 sbi-rt = { version = "0.0.3", features = ["legacy"] }
-syscall_id = { path = "../syscall_id" }
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4ee80e5" }
 xmas-elf = "0.10.0"
 

@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["easy_fs", "kernel", "syscall_id", "user_lib"]
+members = ["common", "easy_fs", "kernel", "user_lib"]
